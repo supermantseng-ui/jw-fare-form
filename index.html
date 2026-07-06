@@ -406,10 +406,10 @@
 
   // 依目前選的類別，把QR解析結果帶進對應欄位
   const QR_FIELD_MAP = {
-    main: { date: 'm_date' },
-    table1: { date: 't1_date', receiptNo: 't1_receiptNo', sellerVat: 't1_sellerVat' },
-    table2: { date: 't2_date', receiptNo: 't2_receiptNo', sellerVat: 't2_sellerVat' },
-    table3: { date: 't3_date', receiptNo: 't3_receiptNo', sellerVat: 't3_sellerVat' },
+    main: { date: 'm_date', amount: 'fAmount' },
+    table1: { date: 't1_date', receiptNo: 't1_receiptNo', sellerVat: 't1_sellerVat', amount: 'fAmount' },
+    table2: { date: 't2_invDate', receiptNo: 't2_invNo', sellerVat: 't2_invVat', amount: 't2_invAmount' },
+    table3: { date: 't3_date', receiptNo: 't3_receiptNo', sellerVat: 't3_sellerVat', amount: 'fAmount' },
   };
 
   document.getElementById('scanBtn').addEventListener('click', () => {
@@ -418,11 +418,22 @@
       if (!res || !res.value) return;
       const parsed = parseInvoiceQr(res.value);
       if (!parsed.ok) { alert('掃到內容但無法解析為發票格式'); return; }
+
+      // 私車公用：QR代表這趟要自帶發票，先把發票格式切到非合併，讓發票欄位展開再帶值
+      if (currentCategory === 'table2') {
+        const fmtSelect = document.getElementById('t2_receiptFormat');
+        if (fmtSelect.value === T2_MERGE_OPTION) {
+          fmtSelect.value = '0-無稅額之其他憑證';
+          updateT2InvoiceFields();
+        }
+      }
+
       const map = QR_FIELD_MAP[currentCategory];
-      if (map.date) document.getElementById(map.date).value = parsed.date;
-      if (map.receiptNo) document.getElementById(map.receiptNo).value = parsed.invoiceNo;
-      if (map.sellerVat) document.getElementById(map.sellerVat).value = parsed.sellerVat;
-      document.getElementById('fAmount').value = parsed.total;
+      const setVal = (id, val) => { const el = document.getElementById(id); if (el) el.value = val; };
+      if (map.date) setVal(map.date, parsed.date);
+      if (map.receiptNo) setVal(map.receiptNo, parsed.invoiceNo);
+      if (map.sellerVat) setVal(map.sellerVat, parsed.sellerVat);
+      if (map.amount) setVal(map.amount, parsed.total);
       alert('已自動帶入日期/金額' + (map.receiptNo ? '/發票號碼/賣方統編' : '') + '，請確認無誤');
     }).catch((err) => {
       alert('掃描失敗：' + err);
