@@ -156,7 +156,7 @@
 
     <button id="scanBtn" class="scan-btn" style="display:none;">📷 掃發票QR自動帶入</button>
 
-    <div class="grid">
+    <div class="grid" id="commonAmountWrap">
       <div><label>總額</label><input id="fAmount" type="number"></div>
     </div>
 
@@ -182,6 +182,9 @@
         <div><label>乘車日期</label><input id="m_date" type="date"></div>
         <div><label>距離(公里)</label><input id="m_dist" type="number"></div>
         <div><label>乘車人數</label><input id="m_pax" type="number" value="1"></div>
+        <div style="display:flex;align-items:center;gap:6px;margin-top:22px;">
+          <input type="checkbox" id="m_electricCar" style="width:auto;margin:0;"><label style="margin:0;" for="m_electricCar">電動車</label>
+        </div>
       </div>
       <label>出發地址(有小票免填)</label><input id="m_from" type="text">
       <label>抵達地址(有小票免填)</label><input id="m_to" type="text">
@@ -223,42 +226,55 @@
 
     <!-- 類別：私車公用 -->
     <div class="cat-group" data-group="table2">
-      <div class="grid">
-        <div><label>交通工具</label>
-          <select id="t2_vehicle">
-            <option>自小客車</option><option>機車</option>
-          </select>
+      <label>交通工具</label>
+      <select id="t2_vehicle">
+        <option value="私人汽車">私人汽車</option>
+        <option value="私人機車">私人機車</option>
+        <option value="上列行程補發票">上列行程補發票</option>
+      </select>
+
+      <!-- 行程模式：私人汽車／私人機車 -->
+      <div id="t2_tripFields">
+        <div class="grid">
+          <div><label>行程日期</label><input id="t2_date" type="date"></div>
+          <div><label>里程數(公里) <span style="color:var(--danger);">*</span></label><input id="t2_dist" type="number" placeholder="12"></div>
+          <div><label>乘車人數</label><input id="t2_pax" type="number" value="1"></div>
         </div>
-        <div><label>行程日期</label><input id="t2_date" type="date"></div>
-        <div><label>行駛里程數(公里)</label><input id="t2_dist" type="number"></div>
-        <div><label>每公里補助金額</label><input id="t2_perKmRate" type="number" placeholder="例如 6"></div>
-        <div><label>乘車人數</label><input id="t2_pax" type="number" value="1"></div>
-        <div><label>發票格式</label>
-          <select id="t2_receiptFormat">
-            <option value="">(選填)</option>
-            <option>0-無稅額之其他憑證</option>
-            <option>與下列明細合併申請-日期/號碼/賣方統編/憑證免填</option>
-          </select>
-        </div>
-        <div><label>發票號碼(不加-)</label><input id="t2_receiptNo" type="text"></div>
-        <div><label>賣方統一編號</label><input id="t2_sellerVat" type="text"></div>
-        <div style="display:flex;align-items:center;gap:6px;margin-top:18px;">
+        <p id="t2_rateHint" style="font-size:12px;color:var(--text-accent);background:var(--accent-soft);padding:8px 10px;border-radius:7px;margin:0 0 10px;"></p>
+        <label>總額（依補助標準自動算出，可調整）</label>
+        <input id="t2_amount" type="number" style="font-size:16px;font-weight:600;">
+        <details style="margin-bottom:10px;">
+          <summary>+ 出發/抵達地址（選填）</summary>
+          <label style="margin-top:8px;">出發地址</label><input id="t2_from" type="text">
+          <label>抵達地址</label><input id="t2_to" type="text">
+        </details>
+        <div style="display:flex;align-items:center;gap:6px;margin-bottom:10px;">
           <input type="checkbox" id="t2_electricCar" style="width:auto;margin:0;"><label style="margin:0;" for="t2_electricCar">電動車</label>
         </div>
+        <label>Google路線截圖 <span style="color:var(--danger);">*</span></label>
+        <input id="t2_map" type="file" accept="image/*" capture="environment" data-target="table2-map">
+        <div class="mapPreview" data-for="table2" style="margin-top:4px;"></div>
       </div>
-      <label>出發地址</label><input id="t2_from" type="text">
-      <label>抵達地址</label><input id="t2_to" type="text">
-      <div class="grid">
-        <div>
-          <label>支出憑證照片(合併申請免傳)</label>
-          <input id="t2_receipt" type="file" accept="image/*" capture="environment" data-target="table2">
-          <div class="receiptPreview" data-for="table2" style="margin-top:4px;"></div>
+
+      <!-- 發票模式：上列行程補發票 -->
+      <div id="t2_receiptFields" style="display:none;">
+        <p style="font-size:12px;color:var(--ink-soft);background:var(--bg);padding:8px 10px;border-radius:7px;">
+          這張發票本身金額不會算進核銷總額，只用來佐證前面登記的行程；行程加總、月份是否符合，會在按「送出到BPM」時一併檢查。
+        </p>
+        <div class="grid">
+          <div><label>發票日期</label><input id="t2r_date" type="date"></div>
+          <div><label>發票金額 <span style="color:var(--danger);">*</span></label><input id="t2r_amount" type="number" style="font-size:16px;font-weight:600;"></div>
         </div>
-        <div>
-          <label>Google路線截圖 <span style="color:var(--danger);">*</span></label>
-          <input id="t2_map" type="file" accept="image/*" capture="environment" data-target="table2-map">
-          <div class="mapPreview" data-for="table2" style="margin-top:4px;"></div>
-        </div>
+        <details style="margin-bottom:10px;">
+          <summary>+ 發票號碼／賣方統編（QR可自動帶入，選填）</summary>
+          <div class="grid" style="margin-top:8px;">
+            <div><label>發票號碼</label><input id="t2r_receiptNo" type="text"></div>
+            <div><label>賣方統一編號</label><input id="t2r_sellerVat" type="text"></div>
+          </div>
+        </details>
+        <label>加油發票照片 <span style="color:var(--danger);">*</span></label>
+        <input id="t2r_receipt" type="file" accept="image/*" capture="environment" data-target="table2">
+        <div class="receiptPreview" data-for="table2" style="margin-top:4px;"></div>
       </div>
     </div>
 
@@ -408,8 +424,45 @@
       tab.classList.add('active');
       currentCategory = tab.dataset.cat;
       document.querySelector('.cat-group[data-group="' + currentCategory + '"]').classList.add('active');
+      document.getElementById('commonAmountWrap').style.display = (currentCategory === 'table2') ? 'none' : 'grid';
     });
   });
+
+  // ── 私車公用：行程／發票 兩種子模式切換 + 補助標準自動計算 ──────
+  const RATE_BY_VEHICLE = { '私人汽車': 8, '私人機車': 6 };
+
+  function updateT2Mode() {
+    const v = document.getElementById('t2_vehicle').value;
+    const isReceipt = v === '上列行程補發票';
+    document.getElementById('t2_tripFields').style.display = isReceipt ? 'none' : 'block';
+    document.getElementById('t2_receiptFields').style.display = isReceipt ? 'block' : 'none';
+  }
+  document.getElementById('t2_vehicle').addEventListener('change', updateT2Mode);
+  updateT2Mode();
+
+  function updateT2Rate() {
+    const v = document.getElementById('t2_vehicle').value;
+    const rate = RATE_BY_VEHICLE[v] || 0;
+    const dist = num_(document.getElementById('t2_dist').value);
+    const suggested = rate * dist;
+    document.getElementById('t2_rateHint').textContent =
+      '補助標準：' + v + ' ' + rate + ' 元/公里 → 建議金額 NT$' + suggested + '（可調整，但不建議低於此標準）';
+    document.getElementById('t2_amount').value = suggested || '';
+  }
+  document.getElementById('t2_vehicle').addEventListener('change', updateT2Rate);
+  document.getElementById('t2_dist').addEventListener('input', updateT2Rate);
+  function num_(v) { return parseFloat(v) || 0; }
+  updateT2Rate();
+
+  // ── 台灣行程/發票月份規則：行程月份±2個月，不跨年 ──────────
+  function isMonthAllowed(tripDateStr, invoiceDateStr) {
+    if (!tripDateStr || !invoiceDateStr) return false;
+    const t = new Date(tripDateStr), inv = new Date(invoiceDateStr);
+    if (t.getFullYear() !== inv.getFullYear()) return false;
+    const tm = t.getMonth() + 1, im = inv.getMonth() + 1;
+    const lo = Math.max(1, tm - 2), hi = Math.min(12, tm + 2);
+    return im >= lo && im <= hi;
+  }
 
   // ── 工號搜尋 ──────────────────────────────────────────
   const empSearch = document.getElementById('empSearch');
@@ -490,6 +543,55 @@
 
   // ── 加入明細 ──────────────────────────────────────────
   document.getElementById('addItemBtn').addEventListener('click', () => {
+    const note = document.getElementById('fNote').value;
+    let it = null;
+    let uploadTargets = [];
+
+    if (currentCategory === 'table2') {
+      // 私車公用有兩種子模式，欄位、驗證、金額來源都不一樣，跟其他類別分開處理
+      const mode = document.getElementById('t2_vehicle').value === '上列行程補發票' ? 'receipt' : 'trip';
+      if (mode === 'trip') {
+        const dist = num_(document.getElementById('t2_dist').value);
+        const amt = num_(document.getElementById('t2_amount').value);
+        if (dist <= 0) { alert('請輸入里程數'); return; }
+        if (amt <= 0) { alert('請確認總額'); return; }
+        if (!uploadedLinks['table2-map']) { alert('私車公用行程必須上傳 Google Map 路線截圖（必填項目）'); return; }
+        it = {
+          category: 'table2', mode: 'trip', note,
+          vehicle: document.getElementById('t2_vehicle').value,
+          date: document.getElementById('t2_date').value,
+          dist: dist,
+          pax: document.getElementById('t2_pax').value,
+          amount: amt,
+          electricCar: document.getElementById('t2_electricCar').checked,
+          from: document.getElementById('t2_from').value,
+          to: document.getElementById('t2_to').value,
+          mapLink: uploadedLinks['table2-map'] || null,
+        };
+        uploadTargets = ['table2-map'];
+      } else {
+        const amt = num_(document.getElementById('t2r_amount').value);
+        if (amt <= 0) { alert('請輸入發票金額'); return; }
+        if (!uploadedLinks['table2']) { alert('請上傳加油發票照片（必填項目）'); return; }
+        it = {
+          category: 'table2', mode: 'receipt', note,
+          vehicle: '上列行程補發票',
+          date: document.getElementById('t2r_date').value,
+          receiptAmount: amt,
+          amount: 0, // 發票本身金額不算進核銷總額，只用來佐證
+          receiptNo: document.getElementById('t2r_receiptNo').value,
+          sellerVat: document.getElementById('t2r_sellerVat').value,
+          receiptLink: uploadedLinks['table2'] || null,
+        };
+        uploadTargets = ['table2'];
+      }
+      items.push(it);
+      clearUploads(uploadTargets);
+      renderItems();
+      return;
+    }
+
+    // 其他類別：共用「總額」欄位
     const amount = parseFloat(document.getElementById('fAmount').value) || 0;
     if (amount <= 0) { alert('請輸入總額'); return; }
 
@@ -497,11 +599,6 @@
     if (currentCategory === 'table1') {
       if (!document.getElementById('t1_from').value.trim() || !document.getElementById('t1_to').value.trim()) {
         alert('請填寫起站與迄站');
-        return;
-      }
-    } else if (currentCategory === 'table2') {
-      if (!uploadedLinks['table2-map']) {
-        alert('私車公用必須上傳 Google Map 路線截圖（用來佐證里程，這是必填項目）');
         return;
       }
     } else if (currentCategory === 'table3') {
@@ -514,7 +611,7 @@
     const common = {
       category: currentCategory,
       amount: amount,
-      note: document.getElementById('fNote').value,
+      note: note,
     };
 
     let it = null;
@@ -529,6 +626,7 @@
         pax: document.getElementById('m_pax').value,
         from: document.getElementById('m_from').value,
         to: document.getElementById('m_to').value,
+        electricCar: document.getElementById('m_electricCar').checked,
         receiptLink: uploadedLinks['main'] || null,
         mapLink: uploadedLinks['main-map'] || null,
       });
@@ -546,23 +644,6 @@
         receiptLink: uploadedLinks['table1'] || null,
       });
       uploadTargets = ['table1'];
-    } else if (currentCategory === 'table2') {
-      it = Object.assign(common, {
-        vehicle: document.getElementById('t2_vehicle').value,
-        date: document.getElementById('t2_date').value,
-        dist: document.getElementById('t2_dist').value,
-        perKmRate: document.getElementById('t2_perKmRate').value,
-        pax: document.getElementById('t2_pax').value,
-        receiptFormat: document.getElementById('t2_receiptFormat').value,
-        receiptNo: document.getElementById('t2_receiptNo').value,
-        sellerVat: document.getElementById('t2_sellerVat').value,
-        electricCar: document.getElementById('t2_electricCar').checked,
-        from: document.getElementById('t2_from').value,
-        to: document.getElementById('t2_to').value,
-        receiptLink: uploadedLinks['table2'] || null,
-        mapLink: uploadedLinks['table2-map'] || null,
-      });
-      uploadTargets = ['table2', 'table2-map'];
     } else if (currentCategory === 'table3') {
       it = Object.assign(common, {
         applyItem: document.getElementById('t3_applyItem').value,
@@ -592,22 +673,64 @@
     document.getElementById('itemTotal').textContent = total.toLocaleString();
     submitBtn.disabled = items.length === 0;
     if (items.length === 0) { list.innerHTML = '<p style="color:#999;font-size:13px;">尚未加入任何明細</p>'; return; }
-    list.innerHTML = items.map((it, idx) =>
-      '<div class="item-card"><div><span class="cat-pill">' + CAT_LABELS[it.category] + '</span>' +
-      (it.vehicle || it.applyItem || '') + ' ' + (it.date || '') +
-      (it.receiptLink ? '<span class="pill">憑證連結</span>' : '') +
-      (it.mapLink ? '<span class="pill">地圖連結</span>' : '') +
-      '</div><div>NT$ ' + it.amount + ' <button class="danger" data-idx="' + idx + '">刪除</button></div></div>'
-    ).join('');
+    list.innerHTML = items.map((it, idx) => {
+      const isReceipt = it.category === 'table2' && it.mode === 'receipt';
+      const displayAmount = isReceipt ? it.receiptAmount : it.amount;
+      const roleTag = isReceipt ? '<span class="pill" style="background:var(--bg-warning,#fef3cd);">佐證發票</span>' : '';
+      return '<div class="item-card"><div><span class="cat-pill">' + CAT_LABELS[it.category] + '</span>' +
+        (it.vehicle || it.applyItem || '') + ' ' + (it.date || '') + roleTag +
+        (it.receiptLink ? '<span class="pill">憑證連結</span>' : '') +
+        (it.mapLink ? '<span class="pill">地圖連結</span>' : '') +
+        '</div><div>NT$ ' + displayAmount + ' <button class="danger" data-idx="' + idx + '">刪除</button></div></div>';
+    }).join('');
     list.querySelectorAll('button[data-idx]').forEach((b) => {
       b.addEventListener('click', () => { items.splice(parseInt(b.dataset.idx), 1); renderItems(); });
     });
   }
   renderItems();
 
+  // ── 私車公用送出前驗證：金額加總 + 月份規則（AND關係，都要符合）─────
+  function validateTable2() {
+    const trips = items.filter((it) => it.category === 'table2' && it.mode === 'trip');
+    const receipts = items.filter((it) => it.category === 'table2' && it.mode === 'receipt');
+    if (trips.length === 0) return { ok: true }; // 沒有私車公用行程，不用檢查
+
+    const tripTotal = trips.reduce((s, it) => s + num_(it.amount), 0);
+    const receiptTotal = receipts.reduce((s, it) => s + num_(it.receiptAmount), 0);
+
+    if (tripTotal > receiptTotal) {
+      return {
+        ok: false,
+        reason: '私車公用：行程金額加總 NT$' + tripTotal + ' 超過發票金額加總 NT$' + receiptTotal +
+          '，請刪除部分行程，或補上足夠的加油發票。',
+      };
+    }
+
+    const badTrips = trips.filter((trip) => !receipts.some((r) => isMonthAllowed(trip.date, r.date)));
+    if (badTrips.length > 0) {
+      const list = badTrips.map((t) => t.date + '（' + t.vehicle + '）').join('、');
+      return {
+        ok: false,
+        reason: '私車公用：以下行程找不到月份符合規則的發票（行程月份前後2個月內、不跨年）：' + list +
+          '，請刪除這幾趟行程，或補上該月份範圍內的發票。',
+      };
+    }
+    return { ok: true };
+  }
+
   // ── 送出 ──────────────────────────────────────────
   submitBtn.addEventListener('click', () => {
     if (!currentEmployee) { alert('請先選擇工號'); return; }
+
+    const check = validateTable2();
+    if (!check.ok) {
+      const box = document.getElementById('resultBox');
+      box.style.display = 'block';
+      box.className = 'err-box';
+      box.textContent = check.reason;
+      return;
+    }
+
     submitBtn.disabled = true;
     submitBtn.textContent = '送出中...';
     callApi('submitFare', { formInput: { employee: currentEmployee, items: items } }).then((res) => {
