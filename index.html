@@ -1,0 +1,525 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <script src="https://static.line-scdn.net/liff/edge/2/sdk.js" onerror="window._liffSdkLoadFailed = true;"></script>
+  <style>
+    :root { --accent:#2563eb; --border:#e2e2e2; --bg:#f7f7f8; --danger:#dc2626; --ok:#16a34a; }
+    * { box-sizing: border-box; }
+    body { font-family: -apple-system, "PingFang TC", "Microsoft JhengHei", sans-serif; margin:0; padding:16px; background:#fff; color:#1a1a1a; }
+    h2 { margin:0 0 4px; font-size:18px; }
+    .sub { color:#888; font-size:12px; margin-bottom:16px; }
+    section { border:1px solid var(--border); border-radius:10px; padding:14px 16px; margin-bottom:14px; }
+    section h3 { font-size:14px; margin:0 0 10px; display:flex; align-items:center; gap:6px; }
+    label { font-size:12px; color:#555; display:block; margin-bottom:3px; }
+    input, select, textarea { width:100%; padding:7px 8px; border:1px solid var(--border); border-radius:6px; font-size:13px; margin-bottom:8px; }
+    .grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(130px,1fr)); gap:8px 10px; }
+    button { background:var(--accent); color:#fff; border:none; border-radius:8px; padding:9px 14px; font-size:13px; cursor:pointer; }
+    button.secondary { background:#06c755; }
+    button.danger { background:transparent; color:var(--danger); padding:2px 6px; }
+    button:disabled { opacity:.5; cursor:not-allowed; }
+    .item-card { border:1px solid var(--border); border-radius:8px; padding:8px 10px; margin-bottom:6px; display:flex; justify-content:space-between; align-items:center; font-size:13px; }
+    .pill { display:inline-block; font-size:11px; padding:2px 6px; border-radius:10px; background:var(--bg); color:#555; margin-left:6px; }
+    .cat-pill { font-size:11px; padding:2px 8px; border-radius:10px; background:#eef2ff; color:var(--accent); margin-right:6px; }
+    .thumb { width:44px; height:44px; object-fit:cover; border-radius:6px; border:1px solid var(--border); vertical-align:middle; }
+    .link-pill { font-size:11px; padding:2px 6px; border-radius:10px; background:#eef2ff; color:var(--accent); }
+    #empSuggest div { padding:6px 8px; border:1px solid var(--border); border-radius:6px; margin-top:4px; cursor:pointer; font-size:13px; }
+    #resultBox { margin-top:12px; padding:10px 12px; border-radius:8px; font-size:12px; white-space:pre-wrap; word-break:break-all; }
+    .ok-box { background:#f0fdf4; border:1px solid #bbf7d0; color:#166534; }
+    .err-box { background:#fef2f2; border:1px solid #fecaca; color:#991b1b; }
+    details summary { cursor:pointer; font-size:12px; color:#888; margin-top:6px; }
+    pre { font-size:11px; background:#f7f7f8; padding:8px; border-radius:6px; overflow:auto; max-height:220px; }
+    .cat-tabs { display:flex; gap:6px; margin-bottom:12px; flex-wrap:wrap; }
+    .cat-tab { flex:1; min-width:110px; text-align:center; padding:9px 6px; border:1px solid var(--border); border-radius:8px; cursor:pointer; font-size:13px; background:#fff; }
+    .cat-tab.active { background:var(--accent); color:#fff; border-color:var(--accent); }
+    .cat-group { display:none; }
+    .cat-group.active { display:block; }
+    #liffStatus { font-size:11px; color:#999; margin-bottom:8px; }
+  </style>
+</head>
+<body>
+  <h2>交通費用申請（事務所版）</h2>
+  <p class="sub">選好交通類別後，只會出現該類別需要的欄位；可以用LINE掃發票QR自動帶入部分欄位。</p>
+  <p id="liffStatus">檢查 LINE 環境中...</p>
+
+  <section>
+    <h3>步驟1．工號</h3>
+    <input id="empSearch" type="text" placeholder="輸入工號或姓名搜尋" autocomplete="off">
+    <div id="empSuggest"></div>
+    <div id="empCard" style="display:none;font-size:13px;margin-top:6px;padding:8px 10px;background:var(--bg);border-radius:6px;"></div>
+  </section>
+
+  <section>
+    <h3>步驟2．新增一筆明細</h3>
+
+    <div class="cat-tabs">
+      <div class="cat-tab active" data-cat="main">計程車/公車/客運</div>
+      <div class="cat-tab" data-cat="table1">航空/高鐵/台鐵/捷運</div>
+      <div class="cat-tab" data-cat="table2">私車公用</div>
+      <div class="cat-tab" data-cat="table3">公務車/其他</div>
+    </div>
+
+    <button id="scanBtn" class="secondary" style="display:none;width:100%;margin-bottom:10px;">📷 掃發票QR自動帶入</button>
+
+    <div class="grid">
+      <div><label>總額</label><input id="fAmount" type="number"></div>
+    </div>
+
+    <!-- 類別：計程車/公車/客運 -->
+    <div class="cat-group active" data-group="main">
+      <div class="grid">
+        <div><label>交通工具</label>
+          <select id="m_vehicle">
+            <option>計程車</option><option>公車</option><option>客運</option>
+            <option>悠遊卡</option><option>停車費</option><option>過路費</option><option>其他</option>
+          </select>
+        </div>
+        <div><label>計費縣市</label>
+          <select id="m_city">
+            <option>台北市</option><option>新北市</option><option>桃園市</option><option>台中市</option>
+            <option>台南市</option><option>高雄市</option><option>基隆市</option><option>新竹市</option>
+            <option>新竹縣</option><option>苗栗縣</option><option>彰化縣</option><option>南投縣</option>
+            <option>雲林縣</option><option>嘉義市</option><option>嘉義縣</option><option>屏東縣</option>
+            <option>宜蘭縣</option><option>花蓮縣</option><option>台東縣</option>
+            <option>澎湖縣</option><option>金門縣</option><option>連江縣</option>
+          </select>
+        </div>
+        <div><label>乘車日期</label><input id="m_date" type="date"></div>
+        <div><label>距離(公里)</label><input id="m_dist" type="number"></div>
+        <div><label>乘車人數</label><input id="m_pax" type="number" value="1"></div>
+      </div>
+      <label>出發地址(有小票免填)</label><input id="m_from" type="text">
+      <label>抵達地址(有小票免填)</label><input id="m_to" type="text">
+      <div class="grid">
+        <div>
+          <label>支出憑證照片</label>
+          <input id="m_receipt" type="file" accept="image/*" capture="environment" data-target="main">
+          <div class="receiptPreview" data-for="main" style="margin-top:4px;"></div>
+        </div>
+        <div>
+          <label>Google Map 截圖(無小票時用)</label>
+          <input id="m_map" type="file" accept="image/*" capture="environment" data-target="main-map">
+          <div class="mapPreview" data-for="main" style="margin-top:4px;"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 類別：航空/高鐵/台鐵/捷運 -->
+    <div class="cat-group" data-group="table1">
+      <div class="grid">
+        <div><label>交通工具</label>
+          <select id="t1_vehicle">
+            <option>高鐵</option><option>台鐵</option><option>捷運</option>
+            <option>國內航班</option><option>國際航班</option>
+          </select>
+        </div>
+        <div><label>班次或車種(台鐵/航空需填)</label><input id="t1_flightNo" type="text"></div>
+        <div><label>起站</label><input id="t1_from" type="text" placeholder="台北"></div>
+        <div><label>迄站</label><input id="t1_to" type="text" placeholder="台中"></div>
+        <div><label>搭乘日期</label><input id="t1_date" type="date"></div>
+        <div><label>乘車人數</label><input id="t1_pax" type="number" value="1"></div>
+        <div><label>憑證號碼(票號後六碼)</label><input id="t1_receiptNo" type="text"></div>
+        <div><label>賣方統一編號</label><input id="t1_sellerVat" type="text"></div>
+      </div>
+      <label>支出憑證照片</label>
+      <input id="t1_receipt" type="file" accept="image/*" capture="environment" data-target="table1">
+      <div class="receiptPreview" data-for="table1" style="margin-top:4px;"></div>
+    </div>
+
+    <!-- 類別：私車公用 -->
+    <div class="cat-group" data-group="table2">
+      <div class="grid">
+        <div><label>交通工具</label>
+          <select id="t2_vehicle">
+            <option>自小客車</option><option>機車</option>
+          </select>
+        </div>
+        <div><label>行程日期</label><input id="t2_date" type="date"></div>
+        <div><label>行駛里程數(公里)</label><input id="t2_dist" type="number"></div>
+        <div><label>每公里補助金額</label><input id="t2_perKmRate" type="number" placeholder="例如 6"></div>
+        <div><label>乘車人數</label><input id="t2_pax" type="number" value="1"></div>
+        <div><label>發票格式</label>
+          <select id="t2_receiptFormat">
+            <option value="">(選填)</option>
+            <option>0-無稅額之其他憑證</option>
+            <option>與下列明細合併申請-日期/號碼/賣方統編/憑證免填</option>
+          </select>
+        </div>
+        <div><label>發票號碼(不加-)</label><input id="t2_receiptNo" type="text"></div>
+        <div><label>賣方統一編號</label><input id="t2_sellerVat" type="text"></div>
+        <div style="display:flex;align-items:center;gap:6px;margin-top:18px;">
+          <input type="checkbox" id="t2_electricCar" style="width:auto;margin:0;"><label style="margin:0;" for="t2_electricCar">電動車</label>
+        </div>
+      </div>
+      <label>出發地址</label><input id="t2_from" type="text">
+      <label>抵達地址</label><input id="t2_to" type="text">
+      <div class="grid">
+        <div>
+          <label>支出憑證照片(合併申請免傳)</label>
+          <input id="t2_receipt" type="file" accept="image/*" capture="environment" data-target="table2">
+          <div class="receiptPreview" data-for="table2" style="margin-top:4px;"></div>
+        </div>
+        <div>
+          <label>Google路線截圖</label>
+          <input id="t2_map" type="file" accept="image/*" capture="environment" data-target="table2-map">
+          <div class="mapPreview" data-for="table2" style="margin-top:4px;"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 類別：公務車油資/停車費/其他 -->
+    <div class="cat-group" data-group="table3">
+      <div class="grid">
+        <div><label>申請項目</label>
+          <select id="t3_applyItem">
+            <option>公務車油資</option><option>停車費</option><option>過路費</option><option>其他</option>
+          </select>
+        </div>
+        <div><label>油品(公務車油資必填)</label>
+          <select id="t3_fuelType">
+            <option value="">(非加油可不選)</option>
+            <option>98無鉛汽油</option><option>95無鉛汽油</option><option>92無鉛汽油</option>
+            <option>柴油</option><option>電動車</option>
+          </select>
+        </div>
+        <div><label>加油公升數</label><input id="t3_liters" type="number"></div>
+        <div><label>發票或憑證日期</label><input id="t3_date" type="date"></div>
+        <div><label>發票號碼(不加-)</label><input id="t3_receiptNo" type="text"></div>
+        <div><label>賣方統一編號</label><input id="t3_sellerVat" type="text"></div>
+      </div>
+      <label>支出憑證照片</label>
+      <input id="t3_receipt" type="file" accept="image/*" capture="environment" data-target="table3">
+      <div class="receiptPreview" data-for="table3" style="margin-top:4px;"></div>
+    </div>
+
+    <label style="margin-top:8px;">備註</label>
+    <input id="fNote" type="text">
+
+    <button id="addItemBtn">加入這筆明細</button>
+  </section>
+
+  <section>
+    <h3>已加入明細（<span id="itemCount">0</span> 筆，總額 NT$ <span id="itemTotal">0</span>）</h3>
+    <div id="itemList"></div>
+  </section>
+
+  <section>
+    <h3>步驟3．送出</h3>
+    <button id="submitBtn" disabled>送出到 BPM</button>
+    <div id="resultBox" style="display:none;"></div>
+  </section>
+
+<script>
+  // ⚠️⚠️⚠️ 這兩個常數，部署後一定要換成實際的值 ⚠️⚠️⚠️
+  const GAS_URL = '請填入部署好的GAS API網址(.../exec結尾)';
+  const LIFF_ID = '請填入LIFF ID(如果要在LINE裡用，不用LIFF可以留空)';
+
+  let currentEmployee = null;
+  let items = [];
+  let currentCategory = 'main';
+  let liffReady = false;
+
+  function escapeHtml(str) {
+    return String(str == null ? '' : str).replace(/[&<>"']/g, (c) => ({
+      '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;',
+    }[c]));
+  }
+
+  (function setDefaultDates() {
+    const today = new Date().toISOString().slice(0, 10);
+    document.querySelectorAll('input[type=date]').forEach((el) => { el.value = today; });
+  })();
+
+  // ── 呼叫 GAS API 的共用函式 ─────────────────────────
+  // Content-Type故意用text/plain，避開瀏覽器的CORS預檢請求(GAS處理不了OPTIONS)
+  function callApi(action, data) {
+    return fetch(GAS_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+      body: JSON.stringify(Object.assign({ action: action }, data)),
+    }).then((r) => r.json());
+  }
+
+  // ── LIFF 初始化（非必要，不在LINE裡開也能正常用其他功能）────
+  if (LIFF_ID && LIFF_ID.indexOf('請填入') === -1 && typeof liff !== 'undefined') {
+    liff.init({ liffId: LIFF_ID }).then(() => {
+      liffReady = true;
+      document.getElementById('liffStatus').textContent = liff.isInClient() ? 'LINE環境已就緒' : '（在一般瀏覽器開啟，掃碼功能需在LINE內開啟才能使用）';
+      if (liff.isInClient()) {
+        document.getElementById('scanBtn').style.display = 'block';
+      }
+    }).catch((err) => {
+      document.getElementById('liffStatus').textContent = '（LIFF初始化失敗，不影響手動填寫功能）';
+    });
+  } else {
+    document.getElementById('liffStatus').style.display = 'none';
+  }
+
+  // ── 發票QR解析 ──────────────────────────────────
+  function parseInvoiceQr(text) {
+    try {
+      const invoiceNo = text.substring(0, 10);
+      const rocDate = text.substring(10, 17);
+      const totalHex = text.substring(29, 37);
+      const sellerVat = text.substring(45, 53).trim();
+      const rocYear = parseInt(rocDate.substring(0, 3), 10);
+      const month = rocDate.substring(3, 5);
+      const day = rocDate.substring(5, 7);
+      return {
+        ok: true,
+        invoiceNo,
+        date: (rocYear + 1911) + '-' + month + '-' + day,
+        total: parseInt(totalHex, 16),
+        sellerVat,
+      };
+    } catch (e) {
+      return { ok: false };
+    }
+  }
+
+  // 依目前選的類別，把QR解析結果帶進對應欄位
+  const QR_FIELD_MAP = {
+    main: { date: 'm_date' },
+    table1: { date: 't1_date', receiptNo: 't1_receiptNo', sellerVat: 't1_sellerVat' },
+    table2: { date: 't2_date', receiptNo: 't2_receiptNo', sellerVat: 't2_sellerVat' },
+    table3: { date: 't3_date', receiptNo: 't3_receiptNo', sellerVat: 't3_sellerVat' },
+  };
+
+  document.getElementById('scanBtn').addEventListener('click', () => {
+    if (!liffReady) { alert('LINE環境尚未就緒'); return; }
+    liff.scanCodeV2().then((res) => {
+      if (!res || !res.value) return;
+      const parsed = parseInvoiceQr(res.value);
+      if (!parsed.ok) { alert('掃到內容但無法解析為發票格式'); return; }
+      const map = QR_FIELD_MAP[currentCategory];
+      if (map.date) document.getElementById(map.date).value = parsed.date;
+      if (map.receiptNo) document.getElementById(map.receiptNo).value = parsed.invoiceNo;
+      if (map.sellerVat) document.getElementById(map.sellerVat).value = parsed.sellerVat;
+      document.getElementById('fAmount').value = parsed.total;
+      alert('已自動帶入日期/金額' + (map.receiptNo ? '/發票號碼/賣方統編' : '') + '，請確認無誤');
+    }).catch((err) => {
+      alert('掃描失敗：' + err);
+    });
+  });
+
+  // ── 類別切換 ──────────────────────────────────────────
+  document.querySelectorAll('.cat-tab').forEach((tab) => {
+    tab.addEventListener('click', () => {
+      document.querySelectorAll('.cat-tab').forEach((t) => t.classList.remove('active'));
+      document.querySelectorAll('.cat-group').forEach((g) => g.classList.remove('active'));
+      tab.classList.add('active');
+      currentCategory = tab.dataset.cat;
+      document.querySelector('.cat-group[data-group="' + currentCategory + '"]').classList.add('active');
+    });
+  });
+
+  // ── 工號搜尋 ──────────────────────────────────────────
+  const empSearch = document.getElementById('empSearch');
+  const empSuggest = document.getElementById('empSuggest');
+  const empCard = document.getElementById('empCard');
+  const submitBtn = document.getElementById('submitBtn');
+
+  let searchTimer = null;
+  empSearch.addEventListener('input', () => {
+    clearTimeout(searchTimer);
+    const q = empSearch.value.trim();
+    if (!q) { empSuggest.innerHTML = ''; return; }
+    searchTimer = setTimeout(() => {
+      callApi('searchEmployee', { query: q }).then((res) => {
+        if (res && res.error) {
+          empSuggest.innerHTML = '<div style="color:#c00;">查詢失敗：' + escapeHtml(res.error) + '</div>';
+          return;
+        }
+        if (!res || res.length === 0) {
+          empSuggest.innerHTML = '<div style="color:#999;">查無符合的工號</div>';
+          return;
+        }
+        empSuggest.innerHTML = res.map((e, i) =>
+          '<div data-i="' + i + '">' + escapeHtml(e.id) + '　' + escapeHtml(e.name) + '　' + escapeHtml(e.office) + '</div>'
+        ).join('');
+        empSuggest.querySelectorAll('div[data-i]').forEach((el, i) => {
+          el.addEventListener('click', () => selectEmployee(res[i]));
+        });
+      }).catch((err) => {
+        empSuggest.innerHTML = '<div style="color:#c00;">呼叫失敗：' + escapeHtml(err.message) + '</div>';
+      });
+    }, 300);
+  });
+
+  function selectEmployee(emp) {
+    currentEmployee = emp;
+    empSearch.value = emp.id + ' ' + emp.name;
+    empSuggest.innerHTML = '';
+    empCard.style.display = 'block';
+    empCard.innerHTML = '<b>' + escapeHtml(emp.name) + '</b>（' + escapeHtml(emp.id) + '）　' + escapeHtml(emp.office) + '　' + escapeHtml(emp.team);
+  }
+
+  // ── 照片上傳 ──────────────────────────────────────────
+  const uploadedLinks = {};
+
+  function fileToBase64(file, cb) {
+    const reader = new FileReader();
+    reader.onload = () => cb(reader.result.split(',')[1], reader.result);
+    reader.readAsDataURL(file);
+  }
+
+  document.querySelectorAll('input[type=file]').forEach((input) => {
+    input.addEventListener('change', (e) => {
+      const file = e.target.files[0];
+      if (!file) return;
+      const target = input.dataset.target;
+      const isMap = target.endsWith('-map');
+      const baseTarget = target.replace('-map', '');
+      const previewSelector = (isMap ? '.mapPreview' : '.receiptPreview') + '[data-for="' + baseTarget + '"]';
+      const box = document.querySelector(previewSelector);
+      box.textContent = '上傳中...';
+      fileToBase64(file, (b64, dataUrl) => {
+        callApi('uploadFile', { base64Data: b64, filename: file.name, mimeType: file.type }).then((res) => {
+          if (!res.ok) { box.innerHTML = '<span style="color:#c00;">上傳失敗：' + escapeHtml(res.reason) + '</span>'; return; }
+          uploadedLinks[target] = res.url;
+          box.innerHTML = (isMap ? '' : '<img class="thumb" src="' + dataUrl + '"> ') + '<span class="link-pill">連結已產生</span>';
+        }).catch((err) => {
+          box.innerHTML = '<span style="color:#c00;">上傳失敗：' + escapeHtml(err.message) + '</span>';
+        });
+      });
+    });
+  });
+
+  function clearUploads(targets) {
+    targets.forEach((t) => { delete uploadedLinks[t]; });
+    document.querySelectorAll('.receiptPreview, .mapPreview').forEach((el) => { el.innerHTML = ''; });
+  }
+
+  // ── 加入明細 ──────────────────────────────────────────
+  document.getElementById('addItemBtn').addEventListener('click', () => {
+    const amount = parseFloat(document.getElementById('fAmount').value) || 0;
+    if (amount <= 0) { alert('請輸入總額'); return; }
+
+    const common = {
+      category: currentCategory,
+      amount: amount,
+      note: document.getElementById('fNote').value,
+    };
+
+    let it = null;
+    let uploadTargets = [];
+
+    if (currentCategory === 'main') {
+      it = Object.assign(common, {
+        vehicle: document.getElementById('m_vehicle').value,
+        city: document.getElementById('m_city').value,
+        date: document.getElementById('m_date').value,
+        dist: document.getElementById('m_dist').value,
+        pax: document.getElementById('m_pax').value,
+        from: document.getElementById('m_from').value,
+        to: document.getElementById('m_to').value,
+        receiptLink: uploadedLinks['main'] || null,
+        mapLink: uploadedLinks['main-map'] || null,
+      });
+      uploadTargets = ['main', 'main-map'];
+    } else if (currentCategory === 'table1') {
+      it = Object.assign(common, {
+        vehicle: document.getElementById('t1_vehicle').value,
+        flightNo: document.getElementById('t1_flightNo').value,
+        from: document.getElementById('t1_from').value,
+        to: document.getElementById('t1_to').value,
+        date: document.getElementById('t1_date').value,
+        pax: document.getElementById('t1_pax').value,
+        receiptNo: document.getElementById('t1_receiptNo').value,
+        sellerVat: document.getElementById('t1_sellerVat').value,
+        receiptLink: uploadedLinks['table1'] || null,
+      });
+      uploadTargets = ['table1'];
+    } else if (currentCategory === 'table2') {
+      it = Object.assign(common, {
+        vehicle: document.getElementById('t2_vehicle').value,
+        date: document.getElementById('t2_date').value,
+        dist: document.getElementById('t2_dist').value,
+        perKmRate: document.getElementById('t2_perKmRate').value,
+        pax: document.getElementById('t2_pax').value,
+        receiptFormat: document.getElementById('t2_receiptFormat').value,
+        receiptNo: document.getElementById('t2_receiptNo').value,
+        sellerVat: document.getElementById('t2_sellerVat').value,
+        electricCar: document.getElementById('t2_electricCar').checked,
+        from: document.getElementById('t2_from').value,
+        to: document.getElementById('t2_to').value,
+        receiptLink: uploadedLinks['table2'] || null,
+        mapLink: uploadedLinks['table2-map'] || null,
+      });
+      uploadTargets = ['table2', 'table2-map'];
+    } else if (currentCategory === 'table3') {
+      it = Object.assign(common, {
+        applyItem: document.getElementById('t3_applyItem').value,
+        fuelType: document.getElementById('t3_fuelType').value,
+        liters: document.getElementById('t3_liters').value,
+        date: document.getElementById('t3_date').value,
+        receiptNo: document.getElementById('t3_receiptNo').value,
+        sellerVat: document.getElementById('t3_sellerVat').value,
+        receiptLink: uploadedLinks['table3'] || null,
+      });
+      uploadTargets = ['table3'];
+    }
+
+    items.push(it);
+    document.getElementById('fAmount').value = '';
+    document.getElementById('fNote').value = '';
+    clearUploads(uploadTargets);
+    renderItems();
+  });
+
+  const CAT_LABELS = { main: '計程車/公車/客運', table1: '航空/高鐵/台鐵/捷運', table2: '私車公用', table3: '公務車/其他' };
+
+  function renderItems() {
+    const list = document.getElementById('itemList');
+    document.getElementById('itemCount').textContent = items.length;
+    const total = items.reduce((s, i) => s + (parseFloat(i.amount) || 0), 0);
+    document.getElementById('itemTotal').textContent = total.toLocaleString();
+    submitBtn.disabled = items.length === 0;
+    if (items.length === 0) { list.innerHTML = '<p style="color:#999;font-size:13px;">尚未加入任何明細</p>'; return; }
+    list.innerHTML = items.map((it, idx) =>
+      '<div class="item-card"><div><span class="cat-pill">' + CAT_LABELS[it.category] + '</span>' +
+      (it.vehicle || it.applyItem || '') + ' ' + (it.date || '') +
+      (it.receiptLink ? '<span class="pill">憑證連結</span>' : '') +
+      (it.mapLink ? '<span class="pill">地圖連結</span>' : '') +
+      '</div><div>NT$ ' + it.amount + ' <button class="danger" data-idx="' + idx + '">刪除</button></div></div>'
+    ).join('');
+    list.querySelectorAll('button[data-idx]').forEach((b) => {
+      b.addEventListener('click', () => { items.splice(parseInt(b.dataset.idx), 1); renderItems(); });
+    });
+  }
+  renderItems();
+
+  // ── 送出 ──────────────────────────────────────────
+  submitBtn.addEventListener('click', () => {
+    if (!currentEmployee) { alert('請先選擇工號'); return; }
+    submitBtn.disabled = true;
+    submitBtn.textContent = '送出中...';
+    callApi('submitFare', { formInput: { employee: currentEmployee, items: items } }).then((res) => {
+      submitBtn.disabled = false;
+      submitBtn.textContent = '送出到 BPM';
+      const box = document.getElementById('resultBox');
+      box.style.display = 'block';
+      if (res.ok) {
+        box.className = 'ok-box';
+        box.innerHTML = '建單成功，單號：' + escapeHtml(res.subjectId) + '　總額 NT$ ' + res.total.toLocaleString() +
+          '<details><summary>查看送出的 JSON / BPM 原始回應</summary><pre>' +
+          escapeHtml(JSON.stringify({ sentJson: res.sentJson, raw: res.raw }, null, 2)) + '</pre></details>';
+      } else {
+        box.className = 'err-box';
+        box.innerHTML = '失敗：' + escapeHtml(res.reason || '未知錯誤') +
+          '<br>HTTP 狀態碼：' + escapeHtml(res.status) + '　Content-Type：' + escapeHtml(res.contentType || '(無)') +
+          (res.raw ? '<details><summary>BPM 原始回應</summary><pre>' + escapeHtml(res.raw) + '</pre></details>' : '<p style="color:#991b1b;">（回應內容完全空白）</p>');
+      }
+    }).catch((err) => {
+      submitBtn.disabled = false;
+      submitBtn.textContent = '送出到 BPM';
+      const box = document.getElementById('resultBox');
+      box.style.display = 'block';
+      box.className = 'err-box';
+      box.textContent = '呼叫失敗：' + err.message;
+    });
+  });
+</script>
+</body>
+</html>
