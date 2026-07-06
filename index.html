@@ -161,8 +161,9 @@
       <div class="grid">
         <div><label>交通工具</label>
           <select id="m_vehicle">
-            <option>計程車</option><option>公車</option><option>客運</option>
-            <option>悠遊卡</option><option>停車費</option><option>過路費</option><option>其他</option>
+            <option>計程車</option>
+            <option>公車-免稅</option>
+            <option>客運-應稅</option>
           </select>
         </div>
         <div><label>計費縣市</label>
@@ -613,9 +614,6 @@
       amount: amount,
       note: note,
     };
-
-    let it = null;
-    let uploadTargets = [];
 
     if (currentCategory === 'main') {
       it = Object.assign(common, {
