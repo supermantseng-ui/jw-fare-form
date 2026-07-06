@@ -325,6 +325,14 @@
   </section>
 
 <script>
+  window.onerror = function(msg, url, line, col, error) {
+    const banner = document.createElement('div');
+    banner.style.cssText = 'position:sticky;top:0;z-index:999;background:#b3432f;color:#fff;padding:10px 14px;font-size:12px;white-space:pre-wrap;word-break:break-all;';
+    banner.textContent = '頁面發生錯誤(第' + line + '行)：' + msg + (error && error.stack ? '\n' + error.stack : '');
+    document.body.insertBefore(banner, document.body.firstChild);
+    return false;
+  };
+
   // ⚠️⚠️⚠️ 這兩個常數，部署後一定要換成實際的值 ⚠️⚠️⚠️
   const GAS_URL = 'https://script.google.com/macros/s/AKfycbznsIOeAci4sX9M4veaases2srjEALVl2vnd4MfRTM8S02t3DLJHTjPGLXiFUAQAwH-JQ/exec';
   const LIFF_ID = '2010616417-62LePnSj';
