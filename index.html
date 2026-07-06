@@ -231,7 +231,7 @@
 
       <div class="grid">
         <div><label>行程日期 <span style="color:var(--danger);">*</span></label><input id="t2_date" type="date"></div>
-        <div><label>里程數(公里) <span style="color:var(--danger);">*</span></label><input id="t2_dist" type="number" placeholder="12"></div>
+        <div><label>里程數(公里) <span style="color:var(--danger);">*</span></label><input id="t2_dist" type="number"></div>
         <div><label>乘車人數 <span style="color:var(--danger);">*</span></label><input id="t2_pax" type="number" value="1"></div>
       </div>
       <p id="t2_rateHint" style="font-size:12px;color:var(--text-accent);background:var(--accent-soft);padding:8px 10px;border-radius:7px;margin:0 0 10px;"></p>
@@ -312,6 +312,7 @@
     <input id="fNote" type="text">
 
     <button id="addItemBtn">加入這筆明細</button>
+    <button id="cancelEditBtn" class="danger" style="display:none;border:1px solid var(--danger);margin-top:6px;width:100%;">取消編輯</button>
   </section>
 
   <section>
@@ -345,6 +346,7 @@
   let items = [];
   let currentCategory = 'main';
   let liffReady = false;
+  let editingIndex = null;
 
   function escapeHtml(str) {
     return String(str == null ? '' : str).replace(/[&<>"']/g, (c) => ({
@@ -352,10 +354,7 @@
     }[c]));
   }
 
-  (function setDefaultDates() {
-    const today = new Date().toISOString().slice(0, 10);
-    document.querySelectorAll('input[type=date]').forEach((el) => { el.value = today; });
-  })();
+  // 依使用者要求，日期欄位不自動預設今天，保持空白讓使用者自己選
 
   // ── 呼叫 GAS API 的共用函式 ─────────────────────────
   // Content-Type故意用text/plain，避開瀏覽器的CORS預檢請求(GAS處理不了OPTIONS)
@@ -441,15 +440,109 @@
   });
 
   // ── 類別切換 ──────────────────────────────────────────
+  function switchToCategory(cat) {
+    document.querySelectorAll('.cat-tab').forEach((t) => t.classList.toggle('active', t.dataset.cat === cat));
+    document.querySelectorAll('.cat-group').forEach((g) => g.classList.toggle('active', g.dataset.group === cat));
+    currentCategory = cat;
+    document.getElementById('commonAmountWrap').style.display = (cat === 'table2') ? 'none' : 'grid';
+  }
   document.querySelectorAll('.cat-tab').forEach((tab) => {
-    tab.addEventListener('click', () => {
-      document.querySelectorAll('.cat-tab').forEach((t) => t.classList.remove('active'));
-      document.querySelectorAll('.cat-group').forEach((g) => g.classList.remove('active'));
-      tab.classList.add('active');
-      currentCategory = tab.dataset.cat;
-      document.querySelector('.cat-group[data-group="' + currentCategory + '"]').classList.add('active');
-      document.getElementById('commonAmountWrap').style.display = (currentCategory === 'table2') ? 'none' : 'grid';
+    tab.addEventListener('click', () => switchToCategory(tab.dataset.cat));
+  });
+
+  // ── 表單重置／編輯回填 ──────────────────────────────────
+  const CATEGORY_FIELD_IDS = {
+    main: ['m_vehicle', 'm_city', 'm_date', 'm_dist', 'm_pax', 'm_from', 'm_to'],
+    table1: ['t1_vehicle', 't1_flightNo', 't1_from', 't1_to', 't1_date', 't1_pax', 't1_receiptNo', 't1_sellerVat'],
+    table2: ['t2_vehicle', 't2_date', 't2_dist', 't2_pax', 't2_from', 't2_to', 't2_amount', 't2_receiptFormat', 't2_invDate', 't2_invAmount', 't2_invNo', 't2_invVat'],
+    table3: ['t3_applyItem', 't3_fuelType', 't3_liters', 't3_date', 't3_receiptNo', 't3_sellerVat'],
+  };
+
+  function resetFormFields(cat) {
+    (CATEGORY_FIELD_IDS[cat] || []).forEach((id) => {
+      const el = document.getElementById(id);
+      if (!el) return;
+      if (el.tagName === 'SELECT') el.selectedIndex = 0;
+      else el.value = '';
     });
+    if (cat === 'main') document.getElementById('m_electricCar').checked = false;
+    if (cat === 'table2') {
+      document.getElementById('t2_electricCar').checked = false;
+      document.getElementById('t2_rateHint').textContent = '';
+      updateT2InvoiceFields();
+    }
+    document.getElementById('fAmount').value = '';
+    document.getElementById('fNote').value = '';
+  }
+
+  function endEditMode() {
+    editingIndex = null;
+    document.getElementById('addItemBtn').textContent = '加入這筆明細';
+    document.getElementById('cancelEditBtn').style.display = 'none';
+  }
+
+  function populateFormForEdit(it, idx) {
+    switchToCategory(it.category);
+    if (it.category === 'main') {
+      document.getElementById('m_vehicle').value = it.vehicle || '';
+      document.getElementById('m_city').value = it.city || '';
+      document.getElementById('m_date').value = it.date || '';
+      document.getElementById('m_dist').value = it.dist || '';
+      document.getElementById('m_pax').value = it.pax || 1;
+      document.getElementById('m_from').value = it.from || '';
+      document.getElementById('m_to').value = it.to || '';
+      document.getElementById('m_electricCar').checked = !!it.electricCar;
+      if (it.receiptLink) uploadedLinks['main'] = it.receiptLink;
+      if (it.mapLink) uploadedLinks['main-map'] = it.mapLink;
+    } else if (it.category === 'table1') {
+      document.getElementById('t1_vehicle').value = it.vehicle || '';
+      document.getElementById('t1_flightNo').value = it.flightNo || '';
+      document.getElementById('t1_from').value = it.from || '';
+      document.getElementById('t1_to').value = it.to || '';
+      document.getElementById('t1_date').value = it.date || '';
+      document.getElementById('t1_pax').value = it.pax || 1;
+      document.getElementById('t1_receiptNo').value = it.receiptNo || '';
+      document.getElementById('t1_sellerVat').value = it.sellerVat || '';
+      if (it.receiptLink) uploadedLinks['table1'] = it.receiptLink;
+    } else if (it.category === 'table2') {
+      document.getElementById('t2_vehicle').value = it.vehicle || '';
+      document.getElementById('t2_date').value = it.date || '';
+      document.getElementById('t2_dist').value = it.dist || '';
+      document.getElementById('t2_pax').value = it.pax || 1;
+      document.getElementById('t2_from').value = it.from || '';
+      document.getElementById('t2_to').value = it.to || '';
+      document.getElementById('t2_amount').value = it.amount || '';
+      document.getElementById('t2_electricCar').checked = !!it.electricCar;
+      document.getElementById('t2_receiptFormat').value = it.receiptFormat || T2_MERGE_OPTION;
+      updateT2InvoiceFields();
+      document.getElementById('t2_invDate').value = it.invoiceDate || '';
+      document.getElementById('t2_invAmount').value = it.invoiceAmount || '';
+      document.getElementById('t2_invNo').value = it.invoiceNo || '';
+      document.getElementById('t2_invVat').value = it.invoiceVat || '';
+      if (it.mapLink) uploadedLinks['table2-map'] = it.mapLink;
+      if (it.receiptLink) uploadedLinks['table2'] = it.receiptLink;
+    } else if (it.category === 'table3') {
+      document.getElementById('t3_applyItem').value = it.applyItem || '';
+      document.getElementById('t3_fuelType').value = it.fuelType || '';
+      document.getElementById('t3_liters').value = it.liters || '';
+      document.getElementById('t3_date').value = it.date || '';
+      document.getElementById('t3_receiptNo').value = it.receiptNo || '';
+      document.getElementById('t3_sellerVat').value = it.sellerVat || '';
+      if (it.receiptLink) uploadedLinks['table3'] = it.receiptLink;
+    }
+    if (it.category !== 'table2') document.getElementById('fAmount').value = it.amount || '';
+    document.getElementById('fNote').value = it.note || '';
+
+    editingIndex = idx;
+    document.getElementById('addItemBtn').textContent = '更新這筆明細';
+    document.getElementById('cancelEditBtn').style.display = 'block';
+    document.getElementById('addItemBtn').scrollIntoView({ behavior: 'smooth', block: 'center' });
+  }
+
+  document.getElementById('cancelEditBtn').addEventListener('click', () => {
+    const cat = currentCategory;
+    endEditMode();
+    resetFormFields(cat);
   });
 
   // ── 私車公用：依發票格式展開發票資訊 + 補助標準自動計算 ──────
@@ -615,7 +708,13 @@
         uploadTargets.push('table2');
       }
 
-      items.push(it);
+      if (editingIndex !== null) {
+        items[editingIndex] = it;
+        endEditMode();
+      } else {
+        items.push(it);
+      }
+      resetFormFields('table2');
       clearUploads(uploadTargets);
       renderItems();
       return;
@@ -684,9 +783,13 @@
       uploadTargets = ['table3'];
     }
 
-    items.push(it);
-    document.getElementById('fAmount').value = '';
-    document.getElementById('fNote').value = '';
+    if (editingIndex !== null) {
+      items[editingIndex] = it;
+      endEditMode();
+    } else {
+      items.push(it);
+    }
+    resetFormFields(currentCategory);
     clearUploads(uploadTargets);
     renderItems();
   });
@@ -703,14 +806,29 @@
     list.innerHTML = items.map((it, idx) => {
       const selfInvoiced = it.category === 'table2' && it.receiptFormat && it.receiptFormat !== T2_MERGE_OPTION;
       const roleTag = selfInvoiced ? '<span class="pill" style="background:#fef3cd;">自帶發票</span>' : '';
-      return '<div class="item-card"><div><span class="cat-pill">' + CAT_LABELS[it.category] + '</span>' +
-        (it.vehicle || it.applyItem || '') + ' ' + (it.date || '') + roleTag +
+      const editingTag = idx === editingIndex ? '<span class="pill" style="background:var(--accent-soft);color:var(--accent);">編輯中</span>' : '';
+      return '<div class="item-card" data-idx="' + idx + '" style="cursor:pointer;"><div><span class="cat-pill">' + CAT_LABELS[it.category] + '</span>' +
+        (it.vehicle || it.applyItem || '') + ' ' + (it.date || '') + roleTag + editingTag +
         (it.receiptLink ? '<span class="pill">憑證連結</span>' : '') +
         (it.mapLink ? '<span class="pill">地圖連結</span>' : '') +
-        '</div><div>NT$ ' + it.amount + ' <button class="danger" data-idx="' + idx + '">刪除</button></div></div>';
+        '</div><div>NT$ ' + it.amount + ' <button class="danger" data-del="' + idx + '">刪除</button></div></div>';
     }).join('');
-    list.querySelectorAll('button[data-idx]').forEach((b) => {
-      b.addEventListener('click', () => { items.splice(parseInt(b.dataset.idx), 1); renderItems(); });
+    list.querySelectorAll('.item-card').forEach((card) => {
+      card.addEventListener('click', () => populateFormForEdit(items[parseInt(card.dataset.idx)], parseInt(card.dataset.idx)));
+    });
+    list.querySelectorAll('button[data-del]').forEach((b) => {
+      b.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const idx = parseInt(b.dataset.del);
+        if (idx === editingIndex) {
+          endEditMode();
+          resetFormFields(currentCategory);
+        } else if (editingIndex !== null && idx < editingIndex) {
+          editingIndex -= 1;
+        }
+        items.splice(idx, 1);
+        renderItems();
+      });
     });
   }
   renderItems();
