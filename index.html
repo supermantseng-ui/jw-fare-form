@@ -156,10 +156,6 @@
 
     <button id="scanBtn" class="scan-btn" style="display:none;">📷 掃發票QR自動帶入</button>
 
-    <div class="grid" id="commonAmountWrap">
-      <div><label>總額</label><input id="fAmount" type="number"></div>
-    </div>
-
     <!-- 類別：計程車/公車/客運 -->
     <div class="cat-group active" data-group="main">
       <div class="grid">
@@ -301,6 +297,10 @@
       <label>支出憑證照片 <span style="color:var(--danger);">*</span></label>
       <input id="t3_receipt" type="file" accept="image/*" capture="environment" data-target="table3">
       <div class="receiptPreview" data-for="table3" style="margin-top:4px;"></div>
+    </div>
+
+    <div class="grid" id="commonAmountWrap">
+      <div><label>總額</label><input id="fAmount" type="number" style="font-size:16px;font-weight:600;"></div>
     </div>
 
     <label style="margin-top:8px;">備註</label>
