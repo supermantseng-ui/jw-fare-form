@@ -132,6 +132,7 @@
       <h2>交通費用申請</h2>
       <p class="sub">選好交通類別後，只會出現該類別需要的欄位；可以用LINE掃發票QR自動帶入部分欄位。</p>
       <p id="liffStatus">檢查 LINE 環境中...</p>
+      <p style="font-size:10px;color:#6b7d94;margin:8px 0 0;">前端版本：v13</p>
     </div>
   </header>
 
@@ -887,6 +888,7 @@
       if (res.ok) {
         box.className = 'ok-box';
         box.innerHTML = '建單成功，單號：' + escapeHtml(res.subjectId) + '　總額 NT$ ' + res.total.toLocaleString() +
+          '　<span style="opacity:.6;">(後端版本:' + escapeHtml(res.apiVersion) + ')</span>' +
           '<details><summary>查看送出的 JSON / BPM 原始回應</summary><pre>' +
           escapeHtml(JSON.stringify({ sentJson: res.sentJson, raw: res.raw }, null, 2)) + '</pre></details>';
       } else {
