@@ -132,7 +132,7 @@
       <h2>交通費用申請</h2>
       <p class="sub">選好交通類別後，只會出現該類別需要的欄位；可以用LINE掃發票QR自動帶入部分欄位。</p>
       <p id="liffStatus">檢查 LINE 環境中...</p>
-      <p style="font-size:10px;color:#6b7d94;margin:8px 0 0;">前端版本：v18</p>
+      <p style="font-size:10px;color:#6b7d94;margin:8px 0 0;">前端版本：v19</p>
     </div>
   </header>
 
@@ -1014,7 +1014,6 @@
     submitBtn.disabled = true;
     submitBtn.textContent = '送出中...';
     callApi('submitFare', { formInput: { employee: currentEmployee, items: items } }).then((res) => {
-      submitBtn.disabled = false;
       submitBtn.textContent = '送出到 BPM';
       const box = document.getElementById('resultBox');
       box.style.display = 'block';
@@ -1024,7 +1023,12 @@
           '　<span style="opacity:.6;">(後端版本:' + escapeHtml(res.apiVersion) + ')</span>' +
           '<details><summary>查看送出的 JSON / BPM 原始回應</summary><pre>' +
           escapeHtml(JSON.stringify({ sentJson: res.sentJson, raw: res.raw }, null, 2)) + '</pre></details>';
+        // 成功後清空明細清單，避免使用者不小心再按一次造成重複送單
+        items = [];
+        if (editingIndex !== null) { endEditMode(); resetFormFields(currentCategory); }
+        renderItems();
       } else {
+        submitBtn.disabled = false; // 失敗才重新啟用，讓使用者修正後可以重試
         box.className = 'err-box';
         box.innerHTML = '失敗：' + escapeHtml(res.reason || '未知錯誤') +
           '<br>HTTP 狀態碼：' + escapeHtml(res.status) + '　Content-Type：' + escapeHtml(res.contentType || '(無)') +
