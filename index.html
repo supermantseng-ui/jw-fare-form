@@ -138,7 +138,7 @@
       <h2>交通費用申請</h2>
       <p class="sub">選好交通類別後，只會出現該類別需要的欄位；可以用LINE掃發票QR自動帶入部分欄位。</p>
       <p id="liffStatus">檢查 LINE 環境中...</p>
-      <p style="font-size:10px;color:#6b7d94;margin:8px 0 0;">前端版本：v22</p>
+      <p style="font-size:10px;color:#6b7d94;margin:8px 0 0;">前端版本：v24</p>
     </div>
   </header>
 
@@ -195,12 +195,12 @@
       <div class="grid">
         <div>
           <label>支出憑證照片</label>
-          <div class="grid" style="grid-template-columns:1fr 1fr;"><div><label class="file-btn" for="m_receipt_cam">📷 拍照</label><input id="m_receipt_cam" type="file" accept="image/*" capture="environment" data-target="main" style="display:none;"></div><div><label class="file-btn" for="m_receipt_gal">🖼 選相簿</label><input id="m_receipt_gal" type="file" accept="image/*" data-target="main" style="display:none;"></div></div>
+          <div class="grid" style="grid-template-columns:1fr 1fr;"><div><label class="file-btn" for="m_receipt_cam">📷 拍照</label><input id="m_receipt_cam" type="file" accept="image/*" capture="environment" data-target="main" style="display:none;"></div><div><label class="file-btn" for="m_receipt_gal">🖼 相簿</label><input id="m_receipt_gal" type="file" accept="image/*" data-target="main" style="display:none;"></div></div>
           <div class="receiptPreview" data-for="main" style="margin-top:4px;"></div>
         </div>
         <div>
           <label>Map 截圖(無小票時用)</label>
-          <div class="grid" style="grid-template-columns:1fr 1fr;"><div><label class="file-btn" for="m_map_cam">📷 拍照</label><input id="m_map_cam" type="file" accept="image/*" capture="environment" data-target="main-map" style="display:none;"></div><div><label class="file-btn" for="m_map_gal">🖼 選相簿</label><input id="m_map_gal" type="file" accept="image/*" data-target="main-map" style="display:none;"></div></div>
+          <div class="grid" style="grid-template-columns:1fr 1fr;"><div><label class="file-btn" for="m_map_cam">📷 拍照</label><input id="m_map_cam" type="file" accept="image/*" capture="environment" data-target="main-map" style="display:none;"></div><div><label class="file-btn" for="m_map_gal">🖼 相簿</label><input id="m_map_gal" type="file" accept="image/*" data-target="main-map" style="display:none;"></div></div>
           <div class="mapPreview" data-for="main" style="margin-top:4px;"></div>
         </div>
       </div>
@@ -228,11 +228,11 @@
         <div><label>搭乘日期</label><input id="t1_date" type="date"></div>
         <div><label>乘車人數</label><input id="t1_pax" type="number" value="1"></div>
         <div><label>憑證號碼(票號後六碼)</label><input id="t1_receiptNo" type="text"></div>
-        <div><label>賣方統一編號（依交通工具自動帶入）</label><input id="t1_sellerVat" type="text" readonly style="background:#f0f0f0;"></div>
+        <div><label>賣方統一編號</label><input id="t1_sellerVat" type="text" readonly style="background:#f0f0f0;"></div>
       </div>
       <datalist id="t1_stationList"></datalist>
       <label>支出憑證照片</label>
-      <div class="grid" style="grid-template-columns:1fr 1fr;"><div><label class="file-btn" for="t1_receipt_cam">📷 拍照</label><input id="t1_receipt_cam" type="file" accept="image/*" capture="environment" data-target="table1" style="display:none;"></div><div><label class="file-btn" for="t1_receipt_gal">🖼 選相簿</label><input id="t1_receipt_gal" type="file" accept="image/*" data-target="table1" style="display:none;"></div></div>
+      <div class="grid" style="grid-template-columns:1fr 1fr;"><div><label class="file-btn" for="t1_receipt_cam">📷 拍照</label><input id="t1_receipt_cam" type="file" accept="image/*" capture="environment" data-target="table1" style="display:none;"></div><div><label class="file-btn" for="t1_receipt_gal">🖼 相簿</label><input id="t1_receipt_gal" type="file" accept="image/*" data-target="table1" style="display:none;"></div></div>
       <div class="receiptPreview" data-for="table1" style="margin-top:4px;"></div>
     </div>
 
@@ -265,7 +265,7 @@
         </div>
 
         <label>Google路線截圖 <span style="color:var(--danger);">*</span></label>
-        <div class="grid" style="grid-template-columns:1fr 1fr;"><div><label class="file-btn" for="t2_map_cam">📷 拍照</label><input id="t2_map_cam" type="file" accept="image/*" capture="environment" data-target="table2-map" style="display:none;"></div><div><label class="file-btn" for="t2_map_gal">🖼 選相簿</label><input id="t2_map_gal" type="file" accept="image/*" data-target="table2-map" style="display:none;"></div></div>
+        <div class="grid" style="grid-template-columns:1fr 1fr;"><div><label class="file-btn" for="t2_map_cam">📷 拍照</label><input id="t2_map_cam" type="file" accept="image/*" capture="environment" data-target="table2-map" style="display:none;"></div><div><label class="file-btn" for="t2_map_gal">🖼 相簿</label><input id="t2_map_gal" type="file" accept="image/*" data-target="table2-map" style="display:none;"></div></div>
         <div class="mapPreview" data-for="table2" style="margin-top:4px;"></div>
 
         <label style="margin-top:10px;">發票格式</label>
@@ -296,7 +296,7 @@
           <div><label>賣方統一編號 <span style="color:var(--danger);">*</span></label><input id="t2_invVat" type="text"></div>
         </div>
         <label>憑證照片 <span style="color:var(--danger);">*</span></label>
-        <div class="grid" style="grid-template-columns:1fr 1fr;"><div><label class="file-btn" for="t2_invReceipt_cam">📷 拍照</label><input id="t2_invReceipt_cam" type="file" accept="image/*" capture="environment" data-target="table2" style="display:none;"></div><div><label class="file-btn" for="t2_invReceipt_gal">🖼 選相簿</label><input id="t2_invReceipt_gal" type="file" accept="image/*" data-target="table2" style="display:none;"></div></div>
+        <div class="grid" style="grid-template-columns:1fr 1fr;"><div><label class="file-btn" for="t2_invReceipt_cam">📷 拍照</label><input id="t2_invReceipt_cam" type="file" accept="image/*" capture="environment" data-target="table2" style="display:none;"></div><div><label class="file-btn" for="t2_invReceipt_gal">🖼 相簿</label><input id="t2_invReceipt_gal" type="file" accept="image/*" data-target="table2" style="display:none;"></div></div>
         <div class="receiptPreview" data-for="table2" style="margin-top:4px;"></div>
       </div>
     </div>
@@ -331,7 +331,7 @@
         <div><label>加油公升數</label><input id="t3_liters" type="number"></div>
       </div>
       <label>支出憑證照片 <span style="color:var(--danger);">*</span></label>
-      <div class="grid" style="grid-template-columns:1fr 1fr;"><div><label class="file-btn" for="t3_receipt_cam">📷 拍照</label><input id="t3_receipt_cam" type="file" accept="image/*" capture="environment" data-target="table3" style="display:none;"></div><div><label class="file-btn" for="t3_receipt_gal">🖼 選相簿</label><input id="t3_receipt_gal" type="file" accept="image/*" data-target="table3" style="display:none;"></div></div>
+      <div class="grid" style="grid-template-columns:1fr 1fr;"><div><label class="file-btn" for="t3_receipt_cam">📷 拍照</label><input id="t3_receipt_cam" type="file" accept="image/*" capture="environment" data-target="table3" style="display:none;"></div><div><label class="file-btn" for="t3_receipt_gal">🖼 相簿</label><input id="t3_receipt_gal" type="file" accept="image/*" data-target="table3" style="display:none;"></div></div>
       <div class="receiptPreview" data-for="table3" style="margin-top:4px;"></div>
     </div>
 
