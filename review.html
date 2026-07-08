@@ -150,9 +150,22 @@
 
       const itemsBox = document.getElementById('r_items');
       itemsBox.innerHTML = (res.items || []).map((it) => {
+        const row = (label, val) => val ? ('<div class="f-row"><span class="fk">' + label + '</span>' + escapeHtml(val) + '</div>') : '';
         const fromTo = (it.from || it.to) ? ('<div class="f-row"><span class="fk">起訖</span>' + escapeHtml(it.from) + ' → ' + escapeHtml(it.to) + '</div>') : '';
-        const dist = it.dist ? ('<div class="f-row"><span class="fk">里程</span>' + escapeHtml(it.dist) + ' 公里</div>') : '';
-        const note = it.note ? ('<div class="f-row"><span class="fk">備註</span>' + escapeHtml(it.note) + '</div>') : '';
+        const fields = [
+          row('計費縣市', it.city),
+          row('班次/車種', it.flightNo),
+          fromTo,
+          row('里程', it.dist ? (it.dist + ' 公里') : ''),
+          row('乘車人數', it.pax),
+          row('油品', it.fuelType),
+          row('加油公升數', it.liters ? (it.liters + ' 公升') : ''),
+          it.electricCar ? '<div class="f-row"><span class="fk">　</span>⚡ 電動車</div>' : '',
+          row('憑證號碼', it.receiptNo),
+          row('賣方統編', it.sellerVat),
+          row('發票格式', it.selfInvoiced ? it.receiptFormat : ''),
+          row('備註', it.note),
+        ].join('');
         let thumbsHtml = '';
         if (it.receiptLink) {
           const u = toThumbUrl(it.receiptLink);
@@ -168,7 +181,7 @@
             '<span class="cat-pill">' + escapeHtml(it.categoryLabel) + '</span>' +
             '<div class="f-row"><span class="fk">項目</span>' + escapeHtml(it.vehicle) + '</div>' +
             '<div class="f-row"><span class="fk">日期</span>' + escapeHtml(it.date) + '</div>' +
-            fromTo + dist + note +
+            fields +
             '<div class="amt">NT$ ' + Number(it.amount).toLocaleString() + '</div>' +
           '</div>' +
           '<div class="thumb-col">' + thumbsHtml + '</div>' +
