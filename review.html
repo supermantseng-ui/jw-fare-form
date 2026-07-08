@@ -43,6 +43,21 @@
     .err-box { background:var(--danger-bg); border:1px solid #f0c9c0; color:var(--danger); padding:10px 12px; border-radius:8px; font-size:13px; margin-bottom:10px; }
     .ok-box { background:var(--ok-bg); border:1px solid #bfe4cc; color:var(--ok); padding:10px 12px; border-radius:8px; font-size:13px; margin-bottom:10px; }
     .reviewed-tag { display:inline-block; font-size:11px; padding:3px 9px; border-radius:20px; background:var(--ok-bg); color:var(--ok); font-weight:600; }
+    .item-card {
+      display:grid; grid-template-columns:1fr 1fr; gap:14px; align-items:start;
+      padding:6px 0;
+    }
+    .item-card .fields .cat-pill {
+      display:inline-block; font-size:10.5px; padding:3px 9px; border-radius:20px;
+      background:var(--accent-soft); color:var(--accent); font-weight:600; margin-bottom:8px;
+    }
+    .item-card .fields .f-row { font-size:13px; padding:4px 0; }
+    .item-card .fields .f-row .fk { color:var(--ink-soft); font-size:11px; display:block; }
+    .item-card .fields .amt { font-size:18px; font-weight:700; color:var(--navy); margin-top:6px; }
+    .item-card .thumb-col a { display:block; margin-bottom:8px; }
+    .item-card .thumb-col img { width:100%; border-radius:8px; border:1px solid var(--border); display:block; }
+    .item-card .thumb-col .thumb-label { font-size:10.5px; color:var(--ink-soft); margin-bottom:3px; }
+    @media (max-width:480px) { .item-card { grid-template-columns:1fr; } }
   </style>
 </head>
 <body>
@@ -68,13 +83,13 @@
       <div id="reviewedBanner"></div>
       <div class="info-row"><span class="k">申請人</span><span id="r_applicant"></span></div>
       <div class="info-row"><span class="k">送出時間</span><span id="r_time"></span></div>
-      <div class="info-row"><span class="k">總額</span><span id="r_total" style="font-weight:600;"></span></div>
-      <p style="font-size:12px;color:var(--ink-soft);margin:12px 0 4px;">明細摘要</p>
-      <div class="summary-line" id="r_summary"></div>
-      <p style="font-size:12px;color:var(--ink-soft);margin:12px 0 4px;">憑證縮圖（點擊可放大原圖）</p>
-      <div class="thumbs" id="r_thumbs"></div>
+      <div class="info-row"><span class="k">總額（匯款以此為準）</span><span id="r_total" style="font-weight:600;"></span></div>
+    </section>
 
-      <label style="margin-top:12px;">匯款日期</label>
+    <div id="r_items" style="display:none;"></div>
+
+    <section id="remitSection" style="display:none;">
+      <label style="margin-top:0;">匯款日期</label>
       <input id="remitDate" type="date">
       <button id="saveBtn">確認並儲存匯款日期</button>
       <div id="saveMsg"></div>
@@ -114,6 +129,8 @@
     const msg = document.getElementById('queryMsg');
     msg.innerHTML = '';
     document.getElementById('resultSection').style.display = 'none';
+    document.getElementById('r_items').style.display = 'none';
+    document.getElementById('remitSection').style.display = 'none';
 
     if (!reviewerId) { msg.innerHTML = '<div class="err-box">請輸入工號</div>'; return; }
     if (!subjectId) { msg.innerHTML = '<div class="err-box">請輸入單號</div>'; return; }
@@ -125,17 +142,38 @@
       }
       currentSubjectId = res.subjectId;
       document.getElementById('resultSection').style.display = 'block';
+      document.getElementById('r_items').style.display = 'block';
+      document.getElementById('remitSection').style.display = 'block';
       document.getElementById('r_applicant').textContent = res.applicantName + '（' + res.applicantId + '）';
       document.getElementById('r_time').textContent = res.submitTime ? new Date(res.submitTime).toLocaleString('zh-TW') : '';
       document.getElementById('r_total').textContent = 'NT$ ' + Number(res.total).toLocaleString();
-      document.getElementById('r_summary').textContent = res.summary;
 
-      const thumbs = document.getElementById('r_thumbs');
-      thumbs.innerHTML = res.links.map((link) => {
-        const thumbUrl = toThumbUrl(link);
-        if (!thumbUrl) return '';
-        return '<a href="' + link + '" target="_blank"><img src="' + thumbUrl + '" loading="lazy"></a>';
-      }).join('') || '<p style="font-size:12px;color:var(--ink-soft);">（這張單沒有附件連結）</p>';
+      const itemsBox = document.getElementById('r_items');
+      itemsBox.innerHTML = (res.items || []).map((it) => {
+        const fromTo = (it.from || it.to) ? ('<div class="f-row"><span class="fk">起訖</span>' + escapeHtml(it.from) + ' → ' + escapeHtml(it.to) + '</div>') : '';
+        const dist = it.dist ? ('<div class="f-row"><span class="fk">里程</span>' + escapeHtml(it.dist) + ' 公里</div>') : '';
+        const note = it.note ? ('<div class="f-row"><span class="fk">備註</span>' + escapeHtml(it.note) + '</div>') : '';
+        let thumbsHtml = '';
+        if (it.receiptLink) {
+          const u = toThumbUrl(it.receiptLink);
+          if (u) thumbsHtml += '<div class="thumb-label">支出憑證</div><a href="' + it.receiptLink + '" target="_blank"><img src="' + u + '" loading="lazy"></a>';
+        }
+        if (it.mapLink) {
+          const u = toThumbUrl(it.mapLink);
+          if (u) thumbsHtml += '<div class="thumb-label">Map截圖</div><a href="' + it.mapLink + '" target="_blank"><img src="' + u + '" loading="lazy"></a>';
+        }
+        if (!thumbsHtml) thumbsHtml = '<p style="font-size:12px;color:var(--ink-soft);">（這筆沒有附件）</p>';
+        return '<section><div class="item-card">' +
+          '<div class="fields">' +
+            '<span class="cat-pill">' + escapeHtml(it.categoryLabel) + '</span>' +
+            '<div class="f-row"><span class="fk">項目</span>' + escapeHtml(it.vehicle) + '</div>' +
+            '<div class="f-row"><span class="fk">日期</span>' + escapeHtml(it.date) + '</div>' +
+            fromTo + dist + note +
+            '<div class="amt">NT$ ' + Number(it.amount).toLocaleString() + '</div>' +
+          '</div>' +
+          '<div class="thumb-col">' + thumbsHtml + '</div>' +
+        '</div></section>';
+      }).join('') || '<section><p style="font-size:12px;color:var(--ink-soft);">（查無明細）</p></section>';
 
       const banner = document.getElementById('reviewedBanner');
       if (res.remittanceDate) {
