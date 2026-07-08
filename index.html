@@ -138,7 +138,7 @@
       <h2>交通費用申請</h2>
       <p class="sub">選好交通類別後，只會出現該類別需要的欄位；可以用LINE掃發票QR自動帶入部分欄位。</p>
       <p id="liffStatus">檢查 LINE 環境中...</p>
-      <p style="font-size:10px;color:#6b7d94;margin:8px 0 0;">前端版本：v24</p>
+      <p style="font-size:10px;color:#6b7d94;margin:8px 0 0;">前端版本：v25</p>
     </div>
   </header>
 
@@ -152,16 +152,24 @@
   </section>
 
   <section>
-    <h3><span class="step-no">2</span>新增一筆明細</h3>
+    <div style="background:var(--accent-soft);border-radius:12px;padding:14px 16px 16px;margin:-16px -18px 0;">
+      <h3 style="margin-top:0;"><span class="step-no">2</span>新增一筆明細</h3>
 
-    <div class="cat-tabs">
-      <div class="cat-tab active" data-cat="main">計程車/公車/客運</div>
-      <div class="cat-tab" data-cat="table1">航空/高鐵/台鐵/捷運</div>
-      <div class="cat-tab" data-cat="table2">私車公用</div>
-      <div class="cat-tab" data-cat="table3">公務車/其他</div>
+      <div class="cat-tabs" style="margin-bottom:12px;">
+        <div class="cat-tab active" data-cat="main">計程車/公車/客運</div>
+        <div class="cat-tab" data-cat="table1">航空/高鐵/台鐵/捷運</div>
+        <div class="cat-tab" data-cat="table2">私車公用</div>
+        <div class="cat-tab" data-cat="table3">公務車/其他</div>
+      </div>
+
+      <button id="scanBtn" class="scan-btn" style="display:none;margin-bottom:0;">📷 掃發票QR自動帶入</button>
     </div>
 
-    <button id="scanBtn" class="scan-btn" style="display:none;">📷 掃發票QR自動帶入</button>
+    <div style="display:flex;align-items:center;gap:10px;padding:16px 2px;">
+      <div style="flex:1;height:1px;background:var(--border);"></div>
+      <span style="font-size:11px;color:var(--ink-soft);white-space:nowrap;">請填寫明細</span>
+      <div style="flex:1;height:1px;background:var(--border);"></div>
+    </div>
 
     <!-- 類別：計程車/公車/客運 -->
     <div class="cat-group active" data-group="main">
