@@ -132,7 +132,7 @@
       <h2>交通費用申請</h2>
       <p class="sub">選好交通類別後，只會出現該類別需要的欄位；可以用LINE掃發票QR自動帶入部分欄位。</p>
       <p id="liffStatus">檢查 LINE 環境中...</p>
-      <p style="font-size:10px;color:#6b7d94;margin:8px 0 0;">前端版本：v20</p>
+      <p style="font-size:10px;color:#6b7d94;margin:8px 0 0;">前端版本：v21</p>
     </div>
   </header>
 
@@ -189,12 +189,12 @@
       <div class="grid">
         <div>
           <label>支出憑證照片</label>
-          <input id="m_receipt" type="file" accept="image/*" data-target="main">
+          <div class="grid" style="grid-template-columns:1fr 1fr;"><div><label style="font-size:11px;">📷 拍照</label><input id="m_receipt_cam" type="file" accept="image/*" capture="environment" data-target="main"></div><div><label style="font-size:11px;">🖼 選相簿</label><input id="m_receipt_gal" type="file" accept="image/*" data-target="main"></div></div>
           <div class="receiptPreview" data-for="main" style="margin-top:4px;"></div>
         </div>
         <div>
           <label>Google Map 截圖(無小票時用)</label>
-          <input id="m_map" type="file" accept="image/*" data-target="main-map">
+          <div class="grid" style="grid-template-columns:1fr 1fr;"><div><label style="font-size:11px;">📷 拍照</label><input id="m_map_cam" type="file" accept="image/*" capture="environment" data-target="main-map"></div><div><label style="font-size:11px;">🖼 選相簿</label><input id="m_map_gal" type="file" accept="image/*" data-target="main-map"></div></div>
           <div class="mapPreview" data-for="main" style="margin-top:4px;"></div>
         </div>
       </div>
@@ -226,7 +226,7 @@
       </div>
       <datalist id="t1_stationList"></datalist>
       <label>支出憑證照片</label>
-      <input id="t1_receipt" type="file" accept="image/*" data-target="table1">
+      <div class="grid" style="grid-template-columns:1fr 1fr;"><div><label style="font-size:11px;">📷 拍照</label><input id="t1_receipt_cam" type="file" accept="image/*" capture="environment" data-target="table1"></div><div><label style="font-size:11px;">🖼 選相簿</label><input id="t1_receipt_gal" type="file" accept="image/*" data-target="table1"></div></div>
       <div class="receiptPreview" data-for="table1" style="margin-top:4px;"></div>
     </div>
 
@@ -259,7 +259,7 @@
         </div>
 
         <label>Google路線截圖 <span style="color:var(--danger);">*</span></label>
-        <input id="t2_map" type="file" accept="image/*" data-target="table2-map">
+        <div class="grid" style="grid-template-columns:1fr 1fr;"><div><label style="font-size:11px;">📷 拍照</label><input id="t2_map_cam" type="file" accept="image/*" capture="environment" data-target="table2-map"></div><div><label style="font-size:11px;">🖼 選相簿</label><input id="t2_map_gal" type="file" accept="image/*" data-target="table2-map"></div></div>
         <div class="mapPreview" data-for="table2" style="margin-top:4px;"></div>
 
         <label style="margin-top:10px;">發票格式</label>
@@ -290,7 +290,7 @@
           <div><label>賣方統一編號 <span style="color:var(--danger);">*</span></label><input id="t2_invVat" type="text"></div>
         </div>
         <label>憑證照片 <span style="color:var(--danger);">*</span></label>
-        <input id="t2_invReceipt" type="file" accept="image/*" data-target="table2">
+        <div class="grid" style="grid-template-columns:1fr 1fr;"><div><label style="font-size:11px;">📷 拍照</label><input id="t2_invReceipt_cam" type="file" accept="image/*" capture="environment" data-target="table2"></div><div><label style="font-size:11px;">🖼 選相簿</label><input id="t2_invReceipt_gal" type="file" accept="image/*" data-target="table2"></div></div>
         <div class="receiptPreview" data-for="table2" style="margin-top:4px;"></div>
       </div>
     </div>
@@ -325,7 +325,7 @@
         <div><label>加油公升數</label><input id="t3_liters" type="number"></div>
       </div>
       <label>支出憑證照片 <span style="color:var(--danger);">*</span></label>
-      <input id="t3_receipt" type="file" accept="image/*" data-target="table3">
+      <div class="grid" style="grid-template-columns:1fr 1fr;"><div><label style="font-size:11px;">📷 拍照</label><input id="t3_receipt_cam" type="file" accept="image/*" capture="environment" data-target="table3"></div><div><label style="font-size:11px;">🖼 選相簿</label><input id="t3_receipt_gal" type="file" accept="image/*" data-target="table3"></div></div>
       <div class="receiptPreview" data-for="table3" style="margin-top:4px;"></div>
     </div>
 
