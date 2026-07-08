@@ -123,6 +123,12 @@
     }
     .totals-bar strong { color:var(--ink); font-size:16px; }
     .field-error { border-color:var(--danger) !important; }
+    .file-btn {
+      display:block; text-align:center; padding:10px 8px; border:1px solid var(--border);
+      border-radius:7px; font-size:12.5px; cursor:pointer; background:#fff; color:var(--ink);
+      margin-bottom:10px; transition:background .1s;
+    }
+    .file-btn:active { background:var(--bg); }
   </style>
 </head>
 <body>
@@ -132,7 +138,7 @@
       <h2>交通費用申請</h2>
       <p class="sub">選好交通類別後，只會出現該類別需要的欄位；可以用LINE掃發票QR自動帶入部分欄位。</p>
       <p id="liffStatus">檢查 LINE 環境中...</p>
-      <p style="font-size:10px;color:#6b7d94;margin:8px 0 0;">前端版本：v21</p>
+      <p style="font-size:10px;color:#6b7d94;margin:8px 0 0;">前端版本：v22</p>
     </div>
   </header>
 
@@ -189,12 +195,12 @@
       <div class="grid">
         <div>
           <label>支出憑證照片</label>
-          <div class="grid" style="grid-template-columns:1fr 1fr;"><div><label style="font-size:11px;">📷 拍照</label><input id="m_receipt_cam" type="file" accept="image/*" capture="environment" data-target="main"></div><div><label style="font-size:11px;">🖼 選相簿</label><input id="m_receipt_gal" type="file" accept="image/*" data-target="main"></div></div>
+          <div class="grid" style="grid-template-columns:1fr 1fr;"><div><label class="file-btn" for="m_receipt_cam">📷 拍照</label><input id="m_receipt_cam" type="file" accept="image/*" capture="environment" data-target="main" style="display:none;"></div><div><label class="file-btn" for="m_receipt_gal">🖼 選相簿</label><input id="m_receipt_gal" type="file" accept="image/*" data-target="main" style="display:none;"></div></div>
           <div class="receiptPreview" data-for="main" style="margin-top:4px;"></div>
         </div>
         <div>
-          <label>Google Map 截圖(無小票時用)</label>
-          <div class="grid" style="grid-template-columns:1fr 1fr;"><div><label style="font-size:11px;">📷 拍照</label><input id="m_map_cam" type="file" accept="image/*" capture="environment" data-target="main-map"></div><div><label style="font-size:11px;">🖼 選相簿</label><input id="m_map_gal" type="file" accept="image/*" data-target="main-map"></div></div>
+          <label>Map 截圖(無小票時用)</label>
+          <div class="grid" style="grid-template-columns:1fr 1fr;"><div><label class="file-btn" for="m_map_cam">📷 拍照</label><input id="m_map_cam" type="file" accept="image/*" capture="environment" data-target="main-map" style="display:none;"></div><div><label class="file-btn" for="m_map_gal">🖼 選相簿</label><input id="m_map_gal" type="file" accept="image/*" data-target="main-map" style="display:none;"></div></div>
           <div class="mapPreview" data-for="main" style="margin-top:4px;"></div>
         </div>
       </div>
@@ -226,7 +232,7 @@
       </div>
       <datalist id="t1_stationList"></datalist>
       <label>支出憑證照片</label>
-      <div class="grid" style="grid-template-columns:1fr 1fr;"><div><label style="font-size:11px;">📷 拍照</label><input id="t1_receipt_cam" type="file" accept="image/*" capture="environment" data-target="table1"></div><div><label style="font-size:11px;">🖼 選相簿</label><input id="t1_receipt_gal" type="file" accept="image/*" data-target="table1"></div></div>
+      <div class="grid" style="grid-template-columns:1fr 1fr;"><div><label class="file-btn" for="t1_receipt_cam">📷 拍照</label><input id="t1_receipt_cam" type="file" accept="image/*" capture="environment" data-target="table1" style="display:none;"></div><div><label class="file-btn" for="t1_receipt_gal">🖼 選相簿</label><input id="t1_receipt_gal" type="file" accept="image/*" data-target="table1" style="display:none;"></div></div>
       <div class="receiptPreview" data-for="table1" style="margin-top:4px;"></div>
     </div>
 
@@ -259,7 +265,7 @@
         </div>
 
         <label>Google路線截圖 <span style="color:var(--danger);">*</span></label>
-        <div class="grid" style="grid-template-columns:1fr 1fr;"><div><label style="font-size:11px;">📷 拍照</label><input id="t2_map_cam" type="file" accept="image/*" capture="environment" data-target="table2-map"></div><div><label style="font-size:11px;">🖼 選相簿</label><input id="t2_map_gal" type="file" accept="image/*" data-target="table2-map"></div></div>
+        <div class="grid" style="grid-template-columns:1fr 1fr;"><div><label class="file-btn" for="t2_map_cam">📷 拍照</label><input id="t2_map_cam" type="file" accept="image/*" capture="environment" data-target="table2-map" style="display:none;"></div><div><label class="file-btn" for="t2_map_gal">🖼 選相簿</label><input id="t2_map_gal" type="file" accept="image/*" data-target="table2-map" style="display:none;"></div></div>
         <div class="mapPreview" data-for="table2" style="margin-top:4px;"></div>
 
         <label style="margin-top:10px;">發票格式</label>
@@ -290,7 +296,7 @@
           <div><label>賣方統一編號 <span style="color:var(--danger);">*</span></label><input id="t2_invVat" type="text"></div>
         </div>
         <label>憑證照片 <span style="color:var(--danger);">*</span></label>
-        <div class="grid" style="grid-template-columns:1fr 1fr;"><div><label style="font-size:11px;">📷 拍照</label><input id="t2_invReceipt_cam" type="file" accept="image/*" capture="environment" data-target="table2"></div><div><label style="font-size:11px;">🖼 選相簿</label><input id="t2_invReceipt_gal" type="file" accept="image/*" data-target="table2"></div></div>
+        <div class="grid" style="grid-template-columns:1fr 1fr;"><div><label class="file-btn" for="t2_invReceipt_cam">📷 拍照</label><input id="t2_invReceipt_cam" type="file" accept="image/*" capture="environment" data-target="table2" style="display:none;"></div><div><label class="file-btn" for="t2_invReceipt_gal">🖼 選相簿</label><input id="t2_invReceipt_gal" type="file" accept="image/*" data-target="table2" style="display:none;"></div></div>
         <div class="receiptPreview" data-for="table2" style="margin-top:4px;"></div>
       </div>
     </div>
@@ -325,7 +331,7 @@
         <div><label>加油公升數</label><input id="t3_liters" type="number"></div>
       </div>
       <label>支出憑證照片 <span style="color:var(--danger);">*</span></label>
-      <div class="grid" style="grid-template-columns:1fr 1fr;"><div><label style="font-size:11px;">📷 拍照</label><input id="t3_receipt_cam" type="file" accept="image/*" capture="environment" data-target="table3"></div><div><label style="font-size:11px;">🖼 選相簿</label><input id="t3_receipt_gal" type="file" accept="image/*" data-target="table3"></div></div>
+      <div class="grid" style="grid-template-columns:1fr 1fr;"><div><label class="file-btn" for="t3_receipt_cam">📷 拍照</label><input id="t3_receipt_cam" type="file" accept="image/*" capture="environment" data-target="table3" style="display:none;"></div><div><label class="file-btn" for="t3_receipt_gal">🖼 選相簿</label><input id="t3_receipt_gal" type="file" accept="image/*" data-target="table3" style="display:none;"></div></div>
       <div class="receiptPreview" data-for="table3" style="margin-top:4px;"></div>
     </div>
 
