@@ -138,7 +138,7 @@
       <h2>交通費用申請</h2>
       <p class="sub">選好交通類別後，只會出現該類別需要的欄位；可以用LINE掃發票QR自動帶入部分欄位。</p>
       <p id="liffStatus">檢查 LINE 環境中...</p>
-      <p style="font-size:10px;color:#6b7d94;margin:8px 0 0;">前端版本：v25</p>
+      <p style="font-size:10px;color:#6b7d94;margin:8px 0 0;">前端版本：v26</p>
     </div>
   </header>
 
@@ -176,6 +176,7 @@
       <div class="grid">
         <div><label>交通工具</label>
           <select id="m_vehicle">
+            <option value="">請選擇</option>
             <option>計程車</option>
             <option>公車-免稅</option>
             <option>客運-應稅</option>
@@ -183,6 +184,7 @@
         </div>
         <div><label>計費縣市</label>
           <select id="m_city">
+            <option value="">請選擇</option>
             <option>台北市</option><option>新北市</option><option>桃園市</option><option>台中市</option>
             <option>台南市</option><option>高雄市</option><option>基隆市</option><option>新竹市</option>
             <option>新竹縣</option><option>苗栗縣</option><option>彰化縣</option><option>南投縣</option>
@@ -219,6 +221,7 @@
       <div class="grid">
         <div><label>交通工具</label>
           <select id="t1_vehicle">
+            <option value="">請選擇</option>
             <option>高鐵</option>
             <option>台鐵</option>
             <option>台鐵悠遊卡</option>
@@ -248,6 +251,7 @@
     <div class="cat-group" data-group="table2">
       <label>交通工具</label>
       <select id="t2_vehicle">
+        <option value="">請選擇</option>
         <option value="私人汽車">私人汽車</option>
         <option value="私人機車">私人機車</option>
         <option value="上列行程補發票">上列行程補發票（多張小額發票湊一趟時用）</option>
@@ -314,6 +318,7 @@
       <div class="grid">
         <div><label>申請項目</label>
           <select id="t3_applyItem">
+            <option value="">請選擇</option>
             <option>公務車油資</option><option>停車費</option><option>過路費</option><option>其他</option>
           </select>
         </div>
@@ -807,9 +812,11 @@
       const receiptFormat = document.getElementById('t2_receiptFormat').value;
       const isMerge = receiptFormat === T2_MERGE_OPTION;
 
+      if (!vehicle) { alert('請選擇交通工具'); return; }
       if (!date) { alert('請輸入行程日期'); return; }
       if (dist <= 0) { alert('請輸入里程數'); return; }
       if (!from || !to) { alert('請填寫出發與抵達地址'); return; }
+      if (num_(pax) <= 0) { alert('請輸入乘車人數'); return; }
       if (amt <= 0) { alert('請確認總額'); return; }
       if (!uploadedLinks['table2-map']) { alert('私車公用行程必須上傳 Google Map 路線截圖（必填項目）'); return; }
 
@@ -859,12 +866,22 @@
     if (amount <= 0) { alert('請輸入總額'); return; }
 
     // BPM 端這幾個欄位是必填，前端先擋，避免送出BPM才發現「安靜失敗」
-    if (currentCategory === 'table1') {
+    if (currentCategory === 'main') {
+      if (!document.getElementById('m_vehicle').value) { alert('請選擇交通工具'); return; }
+      if (!document.getElementById('m_city').value) { alert('請選擇計費縣市'); return; }
+      if (!document.getElementById('m_date').value) { alert('請輸入乘車日期'); return; }
+      if (num_(document.getElementById('m_pax').value) <= 0) { alert('請輸入乘車人數'); return; }
+    } else if (currentCategory === 'table1') {
+      if (!document.getElementById('t1_vehicle').value) { alert('請選擇交通工具'); return; }
       if (!document.getElementById('t1_from').value.trim() || !document.getElementById('t1_to').value.trim()) {
         alert('請填寫起站與迄站');
         return;
       }
+      if (!document.getElementById('t1_date').value) { alert('請輸入搭乘日期'); return; }
+      if (num_(document.getElementById('t1_pax').value) <= 0) { alert('請輸入乘車人數'); return; }
     } else if (currentCategory === 'table3') {
+      if (!document.getElementById('t3_applyItem').value) { alert('請選擇申請項目'); return; }
+      if (!document.getElementById('t3_date').value) { alert('請輸入發票或憑證日期'); return; }
       if (!uploadedLinks['table3']) {
         alert('公務車/其他費用必須上傳支出憑證照片（這是必填項目）');
         return;
