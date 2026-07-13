@@ -111,7 +111,7 @@
       <h2>交通費用申請</h2>
       <p class="sub">選好交通類別後，只會出現該類別需要的欄位；每筆明細請選對應的服務專案。</p>
       <p id="liffStatus">檢查 LINE 環境中...</p>
-      <p style="font-size:10px;color:#6b7d94;margin:8px 0 0;">前端版本：v3</p>
+      <p style="font-size:10px;color:#6b7d94;margin:8px 0 0;">前端版本：v5</p>
     </div>
   </header>
 
@@ -180,6 +180,10 @@
           <div><label>乘車日期</label><input id="m_date" type="date"></div>
           <div><label>距離(公里)</label><input id="m_dist" type="number"></div>
           <div><label>乘車人數</label><input id="m_pax" type="number" value="1"></div>
+          <div><label>憑證號碼(選填)</label><input id="m_receiptNo" type="text"></div>
+        </div>
+        <div style="display:flex;align-items:center;gap:6px;margin-bottom:10px;">
+          <input type="checkbox" id="m_electricCar" style="width:auto;margin:0;"><label style="margin:0;" for="m_electricCar">電動車</label>
         </div>
         <label>出發地址(有小票免填)</label><input id="m_from" type="text">
         <label>抵達地址(有小票免填)</label><input id="m_to" type="text">
@@ -256,6 +260,18 @@
             <div><label class="file-btn" for="t2_map_gal">🖼 相簿</label><input id="t2_map_gal" type="file" accept="image/*" data-target="table2-map" class="file-input-hidden"></div>
           </div>
           <div class="mapPreview" data-for="table2" style="margin-top:4px;"></div>
+
+          <label style="margin-top:10px;">發票格式</label>
+          <select id="t2_receiptFormat">
+            <option value="與下列明細合併申請-日期/號碼/賣方統編/憑證免填">與下列明細合併申請（免附發票）</option>
+            <option value="0-無稅額之其他憑證">0-無稅額之其他憑證</option>
+            <option value="1-格式21:代表進項三聯式、電子計算機統一發票">1-格式21:進項三聯式、電子計算機統一發票</option>
+            <option value="2-格式25:代表進項三聯式收銀機統一發票">2-格式25:進項三聯式收銀機統一發票</option>
+            <option value="3-格式22,27:代表進項二聯式收銀機統一發票、載有稅額之其他憑證">3-格式22,27:進項二聯式收銀機統一發票、載有稅額之其他憑證</option>
+            <option value="4-格式28:代表進項海關代徵營業稅繳納證">4-格式28:進項海關代徵營業稅繳納證</option>
+            <option value="5-格式22,27:載有稅額之其他憑證-有字軌">5-格式22,27:載有稅額之其他憑證-有字軌</option>
+            <option value="6-格式25:代表一般稅額計算之電子發票-含公用事業">6-格式25:一般稅額計算之電子發票-含公用事業</option>
+          </select>
         </div>
 
         <p id="t2_pureReceiptHint" style="display:none;font-size:12px;color:var(--ink-soft);background:var(--bg);padding:8px 10px;border-radius:7px;margin:10px 0;">
@@ -341,7 +357,7 @@
     return false;
   };
 
-  const GAS_URL = 'https://raw.githubusercontent.com/supermantseng-ui/jw-fare-form/main/jdy.html';
+  const GAS_URL = 'https://script.google.com/macros/s/AKfycbznsIOeAci4sX9M4veaases2srjEALVl2vnd4MfRTM8S02t3DLJHTjPGLXiFUAQAwH-JQ/exec';
   const LIFF_ID = '';
 
   let currentEmployee = null;
@@ -428,14 +444,17 @@
 
   const RATE_BY_VEHICLE = { '私人汽車': 8, '私人機車': 6 };
   const T2_PURE_RECEIPT = '上列行程補發票';
+  const T2_MERGE_OPTION = '與下列明細合併申請-日期/號碼/賣方統編/憑證免填';
 
   function updateT2Fields() {
     const isPureReceipt = document.getElementById('t2_vehicle').value === T2_PURE_RECEIPT;
+    const isMerge = document.getElementById('t2_receiptFormat').value === T2_MERGE_OPTION;
     document.getElementById('t2_tripOnlyFields').style.display = isPureReceipt ? 'none' : 'block';
     document.getElementById('t2_pureReceiptHint').style.display = isPureReceipt ? 'block' : 'none';
-    document.getElementById('t2_invoiceFields').style.display = isPureReceipt ? 'block' : 'none';
+    document.getElementById('t2_invoiceFields').style.display = (isPureReceipt || !isMerge) ? 'block' : 'none';
   }
   document.getElementById('t2_vehicle').addEventListener('change', () => { updateT2Fields(); updateT2Rate(); });
+  document.getElementById('t2_receiptFormat').addEventListener('change', updateT2Fields);
   updateT2Fields();
 
   function updateT2Rate() {
@@ -555,9 +574,9 @@
   }
 
   const CATEGORY_FIELD_IDS = {
-    main: ['m_vehicle', 'm_city', 'm_date', 'm_dist', 'm_pax', 'm_from', 'm_to', 'm_amount'],
+    main: ['m_vehicle', 'm_city', 'm_date', 'm_dist', 'm_pax', 'm_from', 'm_to', 'm_amount', 'm_receiptNo'],
     table1: ['t1_vehicle', 't1_flightNo', 't1_from', 't1_to', 't1_date', 't1_pax', 't1_receiptNo', 't1_sellerVat', 't1_amount'],
-    table2: ['t2_vehicle', 't2_date', 't2_dist', 't2_pax', 't2_from', 't2_to', 't2_amount', 't2_invDate', 't2_invAmount', 't2_invNo', 't2_invVat'],
+    table2: ['t2_vehicle', 't2_receiptFormat', 't2_date', 't2_dist', 't2_pax', 't2_from', 't2_to', 't2_amount', 't2_invDate', 't2_invAmount', 't2_invNo', 't2_invVat'],
     table3: ['t3_applyItem', 't3_fuelType', 't3_liters', 't3_date', 't3_receiptNo', 't3_sellerVat', 't3_amount'],
   };
 
@@ -568,6 +587,7 @@
       if (el.tagName === 'SELECT') el.selectedIndex = 0;
       else el.value = '';
     });
+    if (cat === 'main') document.getElementById('m_electricCar').checked = false;
     if (cat === 'table2') { document.getElementById('t2_electricCar').checked = false; updateT2Fields(); updateT2Rate(); }
     if (cat === 'table3') updateT3Fields();
     document.getElementById('fNote').value = '';
@@ -622,6 +642,8 @@
         pax: document.getElementById('m_pax').value,
         from: document.getElementById('m_from').value,
         to: document.getElementById('m_to').value,
+        electricCar: document.getElementById('m_electricCar').checked,
+        receiptNo: document.getElementById('m_receiptNo').value,
         receiptLink: uploadedLinks['main'] || null,
         mapLink: uploadedLinks['main-map'] || null,
       });
@@ -666,6 +688,8 @@
       } else {
         const dist = num_(document.getElementById('t2_dist').value);
         const amount = num_(document.getElementById('t2_amount').value);
+        const receiptFormat = document.getElementById('t2_receiptFormat').value;
+        const isMerge = receiptFormat === T2_MERGE_OPTION;
         if (!document.getElementById('t2_date').value) { alert('請輸入行程日期'); return; }
         if (dist <= 0) { alert('請輸入里程數'); return; }
         if (!document.getElementById('t2_from').value.trim() || !document.getElementById('t2_to').value.trim()) { alert('請填寫出發與抵達地址'); return; }
@@ -680,8 +704,27 @@
           from: document.getElementById('t2_from').value,
           to: document.getElementById('t2_to').value,
           mapLink: uploadedLinks['table2-map'] || null,
+          receiptFormat: receiptFormat,
         });
-        finalizeItem_(it, ['table2-map']);
+        const uploadTargets = ['table2-map'];
+        if (!isMerge) {
+          const invDate = document.getElementById('t2_invDate').value;
+          const invAmount = num_(document.getElementById('t2_invAmount').value);
+          const invNo = document.getElementById('t2_invNo').value.trim();
+          const invVat = document.getElementById('t2_invVat').value.trim();
+          if (!invDate) { alert('請輸入發票日期'); return; }
+          if (invAmount <= 0) { alert('請輸入發票金額'); return; }
+          if (!invNo) { alert('請輸入發票號碼'); return; }
+          if (!invVat) { alert('請輸入賣方統一編號'); return; }
+          if (!uploadedLinks['table2']) { alert('請上傳發票憑證照片'); return; }
+          it.invoiceDate = invDate;
+          it.invoiceAmount = invAmount;
+          it.invoiceNo = invNo;
+          it.invoiceVat = invVat;
+          it.receiptLink = uploadedLinks['table2'] || null;
+          uploadTargets.push('table2');
+        }
+        finalizeItem_(it, uploadTargets);
       }
     } else if (currentCategory === 'table3') {
       if (!document.getElementById('t3_applyItem').value) { alert('請選擇申請項目'); return; }
@@ -760,6 +803,8 @@
       document.getElementById('m_from').value = it.from || '';
       document.getElementById('m_to').value = it.to || '';
       document.getElementById('m_amount').value = it.amount || '';
+      document.getElementById('m_electricCar').checked = !!it.electricCar;
+      document.getElementById('m_receiptNo').value = it.receiptNo || '';
       if (it.receiptLink) uploadedLinks['main'] = it.receiptLink;
       if (it.mapLink) uploadedLinks['main-map'] = it.mapLink;
     } else if (it.category === 'table1') {
@@ -775,6 +820,7 @@
       if (it.receiptLink) uploadedLinks['table1'] = it.receiptLink;
     } else if (it.category === 'table2') {
       document.getElementById('t2_vehicle').value = it.vehicle || '';
+      document.getElementById('t2_receiptFormat').value = it.receiptFormat || T2_MERGE_OPTION;
       updateT2Fields();
       document.getElementById('t2_date').value = it.date || '';
       document.getElementById('t2_dist').value = it.dist || '';
@@ -816,8 +862,62 @@
     document.getElementById('addItemBtn').scrollIntoView({ behavior: 'smooth', block: 'center' });
   }
 
+  // ── 台灣行程/發票月份規則：行程月份±2個月，不跨年 ──────────
+  function isMonthAllowed(tripDateStr, invoiceDateStr) {
+    if (!tripDateStr || !invoiceDateStr) return false;
+    const t = new Date(tripDateStr), inv = new Date(invoiceDateStr);
+    if (t.getFullYear() !== inv.getFullYear()) return false;
+    const tm = t.getMonth() + 1, im = inv.getMonth() + 1;
+    const lo = Math.max(1, tm - 2), hi = Math.min(12, tm + 2);
+    return im >= lo && im <= hi;
+  }
+
+  // ── 私車公用送出前驗證：金額加總 + 月份規則（AND關係，都要符合）─────
+  function validateTable2() {
+    const all = items.filter((it) => it.category === 'table2');
+    if (all.length === 0) return { ok: true };
+
+    const trips = all.filter((it) => it.vehicle !== T2_PURE_RECEIPT);
+    const selfInvoiced = all.filter((it) =>
+      it.vehicle === T2_PURE_RECEIPT || (it.receiptFormat && it.receiptFormat !== T2_MERGE_OPTION)
+    );
+
+    const tripTotal = trips.reduce((s, it) => s + num_(it.amount), 0);
+    const invoiceTotal = selfInvoiced.reduce((s, it) => s + num_(it.invoiceAmount), 0);
+
+    if (tripTotal > invoiceTotal) {
+      return {
+        ok: false,
+        reason: '私車公用：所有行程金額加總 NT$' + tripTotal + ' 超過發票金額加總 NT$' + invoiceTotal +
+          '，請刪除部分行程，或補上足夠的發票（可用「上列行程補發票」補充額度）。',
+      };
+    }
+
+    const merged = trips.filter((it) => !it.receiptFormat || it.receiptFormat === T2_MERGE_OPTION);
+    const badTrips = merged.filter((trip) => !selfInvoiced.some((r) => isMonthAllowed(trip.date, r.invoiceDate)));
+    if (badTrips.length > 0) {
+      const list = badTrips.map((t) => t.date + '（' + t.vehicle + '）').join('、');
+      return {
+        ok: false,
+        reason: '私車公用：以下行程找不到月份符合規則的發票（行程月份前後2個月內、不跨年）：' + list +
+          '，請刪除這幾趟行程，或補上該月份範圍內的發票。',
+      };
+    }
+    return { ok: true };
+  }
+
   submitBtn.addEventListener('click', () => {
     if (!currentEmployee) { alert('請先選擇工號'); return; }
+
+    const check = validateTable2();
+    if (!check.ok) {
+      const box = document.getElementById('resultBox');
+      box.style.display = 'block';
+      box.className = 'err-box';
+      box.textContent = check.reason;
+      return;
+    }
+
     submitBtn.disabled = true;
     submitBtn.textContent = '送出中...';
     callApi('submitFare', { formInput: { employee: currentEmployee, items: items } }).then((res) => {
