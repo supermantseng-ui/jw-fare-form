@@ -1,0 +1,847 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <script src="https://static.line-scdn.net/liff/edge/2/sdk.js" onerror="window._liffSdkLoadFailed = true;"></script>
+  <style>
+    :root {
+      --ink:#1c2430; --ink-soft:#5b6472; --navy:#1e3a5f; --navy-deep:#152a45;
+      --accent:#b8863f; --accent-soft:#f3e8d5;
+      --bg:#f7f5f0; --surface:#ffffff; --border:#e6e1d6;
+      --danger:#b3432f; --danger-bg:#fbeeeb; --ok:#2f7d52; --ok-bg:#eaf6ee;
+      --radius:10px;
+    }
+    * { box-sizing: border-box; }
+    body {
+      font-family: -apple-system, "PingFang TC", "Microsoft JhengHei", sans-serif;
+      margin:0; padding:0 0 40px; background:var(--bg); color:var(--ink);
+      -webkit-font-smoothing: antialiased;
+    }
+    .num { font-variant-numeric: tabular-nums; font-feature-settings: "tnum"; }
+
+    header.top {
+      background: linear-gradient(135deg, var(--navy) 0%, var(--navy-deep) 100%);
+      color:#fff; padding:22px 18px 20px; margin-bottom:18px;
+    }
+    header.top .eyebrow { font-size:11px; letter-spacing:.12em; color:#c7d3e0; text-transform:uppercase; margin:0 0 6px; }
+    header.top h2 { margin:0 0 6px; font-size:20px; font-weight:600; letter-spacing:.01em; }
+    header.top .sub { color:#aebdd0; font-size:12.5px; margin:0; line-height:1.5; }
+    #liffStatus { font-size:11px; color:#8fa5bd; margin:10px 0 0; }
+
+    .wrap { padding:0 16px; }
+
+    section {
+      background:var(--surface); border:1px solid var(--border); border-radius:var(--radius);
+      padding:16px 18px; margin-bottom:14px; box-shadow:0 1px 2px rgba(28,36,48,.04);
+    }
+    section h3 {
+      font-size:13px; margin:0 0 12px; display:flex; align-items:center; gap:8px;
+      color:var(--ink); font-weight:600; letter-spacing:.02em;
+    }
+    section h3 .step-no {
+      display:inline-flex; align-items:center; justify-content:center;
+      width:20px; height:20px; border-radius:50%; background:var(--accent-soft); color:var(--accent);
+      font-size:11px; font-weight:700; flex:none;
+    }
+
+    label { font-size:12px; color:var(--ink-soft); display:block; margin-bottom:4px; font-weight:500; }
+    input, select, textarea {
+      width:100%; padding:9px 10px; border:1px solid var(--border); border-radius:7px;
+      font-size:13.5px; margin-bottom:10px; background:#fff; color:var(--ink);
+      transition:border-color .15s;
+    }
+    input:focus, select:focus, textarea:focus { outline:none; border-color:var(--navy); }
+    input[readonly] { background:#f0f0f0; }
+
+    .grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(130px,1fr)); gap:9px 10px; }
+
+    button { background:var(--navy); color:#fff; border:none; border-radius:8px; padding:11px 16px; font-size:13.5px; font-weight:600; cursor:pointer; transition:background .15s, transform .05s; }
+    button:active { transform:scale(.98); }
+    button:hover:not(:disabled) { background:var(--navy-deep); }
+    button.danger { background:transparent; color:var(--danger); padding:3px 8px; font-weight:500; }
+    button:disabled { opacity:.45; cursor:not-allowed; }
+
+    .item-card { border:1px solid var(--border); border-radius:8px; padding:10px 12px; margin-bottom:7px; display:flex; justify-content:space-between; align-items:center; font-size:13px; background:#fdfcfa; cursor:pointer; }
+    .pill { display:inline-block; font-size:10.5px; padding:2px 7px; border-radius:20px; background:var(--bg); color:var(--ink-soft); margin-left:5px; border:1px solid var(--border); }
+    .cat-pill { font-size:10.5px; padding:3px 9px; border-radius:20px; background:var(--accent-soft); color:var(--accent); margin-right:7px; font-weight:600; }
+    .link-pill { font-size:10.5px; padding:3px 8px; border-radius:20px; background:var(--ok-bg); color:var(--ok); font-weight:600; }
+
+    #empSuggest div, .proj-suggest div {
+      padding:8px 10px; border:1px solid var(--border); border-radius:7px; margin-top:5px;
+      cursor:pointer; font-size:13px; background:#fff; transition:background .1s;
+    }
+    #empSuggest div:hover, .proj-suggest div:hover { background:var(--accent-soft); }
+    #empCard { display:none; font-size:13px; margin-top:8px; padding:10px 12px; background:var(--accent-soft); border-radius:8px; color:var(--ink); }
+
+    .proj-info { display:none; background:var(--bg); border-radius:8px; padding:10px 12px; margin:6px 0 10px; font-size:12.5px; }
+    .proj-info .k { color:var(--ink-soft); font-size:11px; }
+
+    #resultBox { margin-top:14px; padding:12px 14px; border-radius:9px; font-size:12.5px; white-space:pre-wrap; word-break:break-all; }
+    .ok-box { background:var(--ok-bg); border:1px solid #bfe4cc; color:var(--ok); }
+    .err-box { background:var(--danger-bg); border:1px solid #f0c9c0; color:var(--danger); }
+    details summary { cursor:pointer; font-size:12px; color:var(--ink-soft); margin-top:8px; }
+    pre { font-size:11px; background:var(--bg); padding:9px; border-radius:7px; overflow:auto; max-height:220px; }
+
+    .cat-tabs { display:flex; gap:6px; margin-bottom:14px; flex-wrap:wrap; }
+    .cat-tab { flex:1; min-width:110px; text-align:center; padding:10px 6px; border:1px solid var(--border); border-radius:8px; cursor:pointer; font-size:12.5px; font-weight:500; background:#fff; color:var(--ink-soft); transition:all .15s; }
+    .cat-tab.active { background:var(--navy); color:#fff; border-color:var(--navy); font-weight:600; }
+    .cat-group { display:none; }
+    .cat-group.active { display:block; }
+
+    .scan-btn { background:#06c755; width:100%; margin-bottom:0; display:flex; align-items:center; justify-content:center; gap:8px; padding:12px; }
+    .totals-bar { display:flex; justify-content:space-between; align-items:baseline; padding:2px 2px 4px; font-size:13px; color:var(--ink-soft); }
+    .totals-bar strong { color:var(--ink); font-size:16px; }
+    .file-btn {
+      display:block; text-align:center; padding:10px 8px; border:1px solid var(--border);
+      border-radius:7px; font-size:12.5px; cursor:pointer; background:#fff; color:var(--ink);
+      margin-bottom:10px; transition:background .1s;
+    }
+    .file-btn:active { background:var(--bg); }
+  </style>
+</head>
+<body>
+  <header class="top">
+    <div class="wrap" style="padding:0;">
+      <p class="eyebrow">捷達優企管顧問 · 內部系統</p>
+      <h2>交通費用申請</h2>
+      <p class="sub">選好交通類別後，只會出現該類別需要的欄位；每筆明細請選對應的服務專案。</p>
+      <p id="liffStatus">檢查 LINE 環境中...</p>
+      <p style="font-size:10px;color:#6b7d94;margin:8px 0 0;">前端版本：v1</p>
+    </div>
+  </header>
+
+  <div class="wrap">
+    <section>
+      <h3><span class="step-no">1</span>工號</h3>
+      <input id="empSearch" type="text" placeholder="輸入工號或姓名搜尋" autocomplete="off">
+      <div id="empSuggest"></div>
+      <div id="empCard"></div>
+    </section>
+
+    <section>
+      <div style="background:var(--accent-soft);border-radius:12px;padding:14px 16px 16px;margin:-16px -18px 0;">
+        <h3 style="margin-top:0;"><span class="step-no">2</span>新增一筆明細</h3>
+        <div class="cat-tabs" style="margin-bottom:12px;">
+          <div class="cat-tab active" data-cat="main">計程車/公車/客運</div>
+          <div class="cat-tab" data-cat="table1">航空/高鐵/台鐵/捷運</div>
+          <div class="cat-tab" data-cat="table2">私車公用</div>
+          <div class="cat-tab" data-cat="table3">公務車/其他</div>
+        </div>
+        <button id="scanBtn" class="scan-btn" style="display:none;">📷 掃發票QR自動帶入</button>
+      </div>
+
+      <div style="display:flex;align-items:center;gap:10px;padding:16px 2px;">
+        <div style="flex:1;height:1px;background:var(--border);"></div>
+        <span style="font-size:11px;color:var(--ink-soft);white-space:nowrap;">請填寫明細</span>
+        <div style="flex:1;height:1px;background:var(--border);"></div>
+      </div>
+
+      <label>服務專案 <span style="color:var(--danger);">*</span></label>
+      <input id="projSearch" type="text" placeholder="輸入專案名稱搜尋" autocomplete="off">
+      <div id="projSuggest" class="proj-suggest"></div>
+      <div id="projInfo" class="proj-info">
+        <div><span class="k">服務客戶：</span><span id="proj_client"></span></div>
+        <div><span class="k">專案代號：</span><span id="proj_code"></span></div>
+      </div>
+
+      <label>費用類別 <span style="color:var(--danger);">*</span></label>
+      <select id="costType">
+        <option value="">請選擇</option>
+        <option>部門費用</option>
+        <option>客戶吸收</option>
+      </select>
+
+      <div class="cat-group active" data-group="main">
+        <div class="grid">
+          <div><label>交通工具</label>
+            <select id="m_vehicle">
+              <option value="">請選擇</option>
+              <option>計程車</option>
+              <option>公車-免稅</option>
+              <option>客運-應稅</option>
+            </select>
+          </div>
+          <div><label>計費縣市</label>
+            <select id="m_city">
+              <option value="">請選擇</option>
+              <option>台北市</option><option>新北市</option><option>桃園市</option><option>台中市</option>
+              <option>台南市</option><option>高雄市</option><option>基隆市</option><option>新竹市</option>
+              <option>新竹縣</option><option>苗栗縣</option><option>彰化縣</option><option>南投縣</option>
+              <option>雲林縣</option><option>嘉義市</option><option>嘉義縣</option><option>屏東縣</option>
+              <option>宜蘭縣</option><option>花蓮縣</option><option>台東縣</option>
+              <option>澎湖縣</option><option>金門縣</option><option>連江縣</option>
+            </select>
+          </div>
+          <div><label>乘車日期</label><input id="m_date" type="date"></div>
+          <div><label>距離(公里)</label><input id="m_dist" type="number"></div>
+          <div><label>乘車人數</label><input id="m_pax" type="number" value="1"></div>
+        </div>
+        <label>出發地址(有小票免填)</label><input id="m_from" type="text">
+        <label>抵達地址(有小票免填)</label><input id="m_to" type="text">
+        <div class="grid" style="grid-template-columns:1fr 1fr;">
+          <div><label class="file-btn" for="m_receipt_cam">📷 拍照</label><input id="m_receipt_cam" type="file" accept="image/*" capture="environment" data-target="main" style="display:none;"></div>
+          <div><label class="file-btn" for="m_receipt_gal">🖼 相簿</label><input id="m_receipt_gal" type="file" accept="image/*" data-target="main" style="display:none;"></div>
+        </div>
+        <div class="receiptPreview" data-for="main" style="margin-top:4px;"></div>
+        <label style="margin-top:8px;">Map 截圖(無小票時用)</label>
+        <div class="grid" style="grid-template-columns:1fr 1fr;">
+          <div><label class="file-btn" for="m_map_cam">📷 拍照</label><input id="m_map_cam" type="file" accept="image/*" capture="environment" data-target="main-map" style="display:none;"></div>
+          <div><label class="file-btn" for="m_map_gal">🖼 相簿</label><input id="m_map_gal" type="file" accept="image/*" data-target="main-map" style="display:none;"></div>
+        </div>
+        <div class="mapPreview" data-for="main" style="margin-top:4px;"></div>
+        <label style="margin-top:8px;">總額</label>
+        <input id="m_amount" type="number" style="font-size:16px;font-weight:600;">
+      </div>
+
+      <div class="cat-group" data-group="table1">
+        <div class="grid">
+          <div><label>交通工具</label>
+            <select id="t1_vehicle">
+              <option value="">請選擇</option>
+              <option>高鐵</option><option>台鐵</option><option>台鐵悠遊卡</option>
+              <option>台北捷運</option><option>桃園捷運</option><option>台中捷運</option><option>高雄捷運</option>
+              <option>國內航空</option><option>國外航空</option>
+            </select>
+          </div>
+          <div><label>班次或車種</label><input id="t1_flightNo" type="text" placeholder="台鐵/航空需填"></div>
+          <div><label>起站 <span style="color:var(--danger);">*</span></label><input id="t1_from" type="text" autocomplete="off"></div>
+          <div><label>迄站 <span style="color:var(--danger);">*</span></label><input id="t1_to" type="text" autocomplete="off"></div>
+          <div><label>搭乘日期</label><input id="t1_date" type="date"></div>
+          <div><label>乘車人數</label><input id="t1_pax" type="number" value="1"></div>
+          <div><label>憑證號碼(票號後六碼)</label><input id="t1_receiptNo" type="text"></div>
+          <div><label>賣方統一編號</label><input id="t1_sellerVat" type="text"></div>
+        </div>
+        <div class="grid" style="grid-template-columns:1fr 1fr;">
+          <div><label class="file-btn" for="t1_receipt_cam">📷 拍照</label><input id="t1_receipt_cam" type="file" accept="image/*" capture="environment" data-target="table1" style="display:none;"></div>
+          <div><label class="file-btn" for="t1_receipt_gal">🖼 相簿</label><input id="t1_receipt_gal" type="file" accept="image/*" data-target="table1" style="display:none;"></div>
+        </div>
+        <div class="receiptPreview" data-for="table1" style="margin-top:4px;"></div>
+        <label style="margin-top:8px;">總額</label>
+        <input id="t1_amount" type="number" style="font-size:16px;font-weight:600;">
+      </div>
+
+      <div class="cat-group" data-group="table2">
+        <label>交通工具</label>
+        <select id="t2_vehicle">
+          <option value="">請選擇</option>
+          <option value="私人汽車">私人汽車</option>
+          <option value="私人機車">私人機車</option>
+          <option value="上列行程補發票">上列行程補發票（多張小額發票湊一趟時用）</option>
+        </select>
+
+        <div id="t2_tripOnlyFields">
+          <div class="grid">
+            <div><label>行程日期</label><input id="t2_date" type="date"></div>
+            <div><label>里程數(公里)</label><input id="t2_dist" type="number"></div>
+            <div><label>乘車人數</label><input id="t2_pax" type="number" value="1"></div>
+          </div>
+          <p id="t2_rateHint" style="font-size:12px;color:var(--accent);background:var(--accent-soft);padding:8px 10px;border-radius:7px;margin:0 0 10px;"></p>
+          <label>總額（依補助標準自動算出，可調整）</label>
+          <input id="t2_amount" type="number" style="font-size:16px;font-weight:600;">
+          <div class="grid">
+            <div><label>出發地址</label><input id="t2_from" type="text"></div>
+            <div><label>抵達地址</label><input id="t2_to" type="text"></div>
+          </div>
+          <div style="display:flex;align-items:center;gap:6px;margin-bottom:10px;">
+            <input type="checkbox" id="t2_electricCar" style="width:auto;margin:0;"><label style="margin:0;" for="t2_electricCar">電動車</label>
+          </div>
+          <label>Map 截圖</label>
+          <div class="grid" style="grid-template-columns:1fr 1fr;">
+            <div><label class="file-btn" for="t2_map_cam">📷 拍照</label><input id="t2_map_cam" type="file" accept="image/*" capture="environment" data-target="table2-map" style="display:none;"></div>
+            <div><label class="file-btn" for="t2_map_gal">🖼 相簿</label><input id="t2_map_gal" type="file" accept="image/*" data-target="table2-map" style="display:none;"></div>
+          </div>
+          <div class="mapPreview" data-for="table2" style="margin-top:4px;"></div>
+        </div>
+
+        <p id="t2_pureReceiptHint" style="display:none;font-size:12px;color:var(--ink-soft);background:var(--bg);padding:8px 10px;border-radius:7px;margin:10px 0;">
+          這一列不代表一趟行程，單純用來補充發票額度。
+        </p>
+
+        <label style="margin-top:10px;">發票金額</label>
+        <input id="t2_invAmount" type="number" style="font-size:16px;font-weight:600;">
+        <div class="grid">
+          <div><label>發票日期</label><input id="t2_invDate" type="date"></div>
+          <div><label>發票號碼</label><input id="t2_invNo" type="text"></div>
+        </div>
+        <label>賣方統一編號</label><input id="t2_invVat" type="text">
+        <label>憑證照片</label>
+        <div class="grid" style="grid-template-columns:1fr 1fr;">
+          <div><label class="file-btn" for="t2_inv_cam">📷 拍照</label><input id="t2_inv_cam" type="file" accept="image/*" capture="environment" data-target="table2" style="display:none;"></div>
+          <div><label class="file-btn" for="t2_inv_gal">🖼 相簿</label><input id="t2_inv_gal" type="file" accept="image/*" data-target="table2" style="display:none;"></div>
+        </div>
+        <div class="receiptPreview" data-for="table2" style="margin-top:4px;"></div>
+      </div>
+
+      <div class="cat-group" data-group="table3">
+        <div class="grid">
+          <div><label>申請項目</label>
+            <select id="t3_applyItem">
+              <option value="">請選擇</option>
+              <option>公務車油資</option><option>停車費</option><option>過路費</option><option>其他</option>
+            </select>
+          </div>
+          <div><label>發票或憑證日期</label><input id="t3_date" type="date"></div>
+          <div><label>發票號碼(不加-)</label><input id="t3_receiptNo" type="text"></div>
+          <div><label>賣方統一編號</label><input id="t3_sellerVat" type="text"></div>
+        </div>
+        <div id="t3_fuelFields" class="grid" style="display:none;">
+          <div><label>油品</label>
+            <select id="t3_fuelType">
+              <option value="">(請選擇)</option>
+              <option>98無鉛汽油</option><option>95無鉛汽油</option><option>92無鉛汽油</option>
+              <option>柴油</option><option>電動車</option>
+            </select>
+          </div>
+          <div><label>加油公升數</label><input id="t3_liters" type="number"></div>
+        </div>
+        <div class="grid" style="grid-template-columns:1fr 1fr;">
+          <div><label class="file-btn" for="t3_receipt_cam">📷 拍照</label><input id="t3_receipt_cam" type="file" accept="image/*" capture="environment" data-target="table3" style="display:none;"></div>
+          <div><label class="file-btn" for="t3_receipt_gal">🖼 相簿</label><input id="t3_receipt_gal" type="file" accept="image/*" data-target="table3" style="display:none;"></div>
+        </div>
+        <div class="receiptPreview" data-for="table3" style="margin-top:4px;"></div>
+        <label style="margin-top:8px;">總額</label>
+        <input id="t3_amount" type="number" style="font-size:16px;font-weight:600;">
+      </div>
+
+      <label style="margin-top:8px;">備註</label>
+      <input id="fNote" type="text">
+
+      <button id="addItemBtn">加入這筆明細</button>
+      <button id="cancelEditBtn" class="danger" style="display:none;border:1px solid var(--danger);margin-top:6px;width:100%;">取消編輯</button>
+    </section>
+
+    <section>
+      <div class="totals-bar">
+        <span>已加入明細 <span id="itemCount" class="num">0</span> 筆</span>
+        <span>總額 NT$ <strong id="itemTotal" class="num">0</strong></span>
+      </div>
+      <div id="itemList"></div>
+    </section>
+
+    <section>
+      <h3><span class="step-no">3</span>送出</h3>
+      <button id="submitBtn" disabled>送出到 BPM</button>
+      <div id="resultBox" style="display:none;"></div>
+    </section>
+  </div>
+
+<script>
+  window.onerror = function(msg, url, line, col, error) {
+    const banner = document.createElement('div');
+    banner.style.cssText = 'position:sticky;top:0;z-index:999;background:#b3432f;color:#fff;padding:10px 14px;font-size:12px;white-space:pre-wrap;word-break:break-all;';
+    banner.textContent = '頁面發生錯誤(第' + line + '行)：' + msg + (error && error.stack ? '\n' + error.stack : '');
+    document.body.insertBefore(banner, document.body.firstChild);
+    return false;
+  };
+
+  const GAS_URL = '請填入部署好的GAS API網址(.../exec結尾)';
+  const LIFF_ID = '';
+
+  let currentEmployee = null;
+  let selectedProject = null;
+  let items = [];
+  let currentCategory = 'main';
+  let liffReady = false;
+  let editingIndex = null;
+
+  function escapeHtml(str) {
+    return String(str == null ? '' : str).replace(/[&<>"']/g, (c) => ({
+      '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;',
+    }[c]));
+  }
+
+  function num_(v) { return parseFloat(v) || 0; }
+
+  function callApi(action, data) {
+    return fetch(GAS_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+      body: JSON.stringify(Object.assign({ app: 'jdy', action: action }, data)),
+    }).then((r) => r.json());
+  }
+
+  if (LIFF_ID && typeof liff !== 'undefined') {
+    liff.init({ liffId: LIFF_ID }).then(() => {
+      liffReady = true;
+      document.getElementById('liffStatus').textContent = liff.isInClient() ? 'LINE環境已就緒' : '（在一般瀏覽器開啟）';
+      if (liff.isInClient()) document.getElementById('scanBtn').style.display = 'block';
+    }).catch(() => {
+      document.getElementById('liffStatus').textContent = '（LIFF初始化失敗，不影響手動填寫功能）';
+    });
+  } else {
+    document.getElementById('liffStatus').style.display = 'none';
+  }
+
+  function parseInvoiceQr(text) {
+    try {
+      const invoiceNo = text.substring(0, 10);
+      const rocDate = text.substring(10, 17);
+      const totalHex = text.substring(29, 37);
+      const sellerVat = text.substring(45, 53).trim();
+      const rocYear = parseInt(rocDate.substring(0, 3), 10);
+      const month = rocDate.substring(3, 5);
+      const day = rocDate.substring(5, 7);
+      return { ok: true, invoiceNo, date: (rocYear + 1911) + '-' + month + '-' + day, total: parseInt(totalHex, 16), sellerVat };
+    } catch (e) {
+      return { ok: false };
+    }
+  }
+
+  const QR_FIELD_MAP = {
+    main: { date: 'm_date', amount: 'm_amount' },
+    table1: { date: 't1_date', receiptNo: 't1_receiptNo', sellerVat: 't1_sellerVat', amount: 't1_amount' },
+    table2: { date: 't2_invDate', receiptNo: 't2_invNo', sellerVat: 't2_invVat', amount: 't2_invAmount' },
+    table3: { date: 't3_date', receiptNo: 't3_receiptNo', sellerVat: 't3_sellerVat', amount: 't3_amount' },
+  };
+
+  document.getElementById('scanBtn').addEventListener('click', () => {
+    if (!liffReady) { alert('LINE環境尚未就緒'); return; }
+    liff.scanCodeV2().then((res) => {
+      if (!res || !res.value) return;
+      const parsed = parseInvoiceQr(res.value);
+      if (!parsed.ok) { alert('掃到內容但無法解析為發票格式'); return; }
+      const map = QR_FIELD_MAP[currentCategory];
+      const setVal = (id, val) => { const el = document.getElementById(id); if (el) el.value = val; };
+      if (map.date) setVal(map.date, parsed.date);
+      if (map.receiptNo) setVal(map.receiptNo, parsed.invoiceNo);
+      if (map.sellerVat) setVal(map.sellerVat, parsed.sellerVat);
+      if (map.amount) setVal(map.amount, parsed.total);
+      alert('已自動帶入日期/金額' + (map.receiptNo ? '/發票號碼/賣方統編' : '') + '，請確認無誤');
+    }).catch((err) => { alert('掃描失敗：' + err); });
+  });
+
+  function switchToCategory(cat) {
+    document.querySelectorAll('.cat-tab').forEach((t) => t.classList.toggle('active', t.dataset.cat === cat));
+    document.querySelectorAll('.cat-group').forEach((g) => g.classList.toggle('active', g.dataset.group === cat));
+    currentCategory = cat;
+  }
+  document.querySelectorAll('.cat-tab').forEach((tab) => {
+    tab.addEventListener('click', () => switchToCategory(tab.dataset.cat));
+  });
+
+  const RATE_BY_VEHICLE = { '私人汽車': 8, '私人機車': 6 };
+  const T2_PURE_RECEIPT = '上列行程補發票';
+
+  function updateT2Fields() {
+    const isPureReceipt = document.getElementById('t2_vehicle').value === T2_PURE_RECEIPT;
+    document.getElementById('t2_tripOnlyFields').style.display = isPureReceipt ? 'none' : 'block';
+    document.getElementById('t2_pureReceiptHint').style.display = isPureReceipt ? 'block' : 'none';
+  }
+  document.getElementById('t2_vehicle').addEventListener('change', () => { updateT2Fields(); updateT2Rate(); });
+  updateT2Fields();
+
+  function updateT2Rate() {
+    const v = document.getElementById('t2_vehicle').value;
+    const rate = RATE_BY_VEHICLE[v] || 0;
+    const dist = num_(document.getElementById('t2_dist').value);
+    const suggested = rate * dist;
+    document.getElementById('t2_rateHint').textContent = rate
+      ? ('補助標準：' + v + ' ' + rate + ' 元/公里 → 建議金額 NT$' + suggested)
+      : '';
+    if (rate) document.getElementById('t2_amount').value = suggested || '';
+  }
+  document.getElementById('t2_dist').addEventListener('input', updateT2Rate);
+  updateT2Rate();
+
+  function updateT3Fields() {
+    const v = document.getElementById('t3_applyItem').value;
+    document.getElementById('t3_fuelFields').style.display = (v === '公務車油資') ? 'grid' : 'none';
+  }
+  document.getElementById('t3_applyItem').addEventListener('change', updateT3Fields);
+  updateT3Fields();
+
+  const empSearch = document.getElementById('empSearch');
+  const empSuggest = document.getElementById('empSuggest');
+  const empCard = document.getElementById('empCard');
+  const submitBtn = document.getElementById('submitBtn');
+
+  let empSearchTimer = null;
+  empSearch.addEventListener('input', () => {
+    clearTimeout(empSearchTimer);
+    const q = empSearch.value.trim();
+    if (!q) { empSuggest.innerHTML = ''; return; }
+    empSearchTimer = setTimeout(() => {
+      callApi('searchEmployee', { query: q }).then((res) => {
+        if (res && res.error) { empSuggest.innerHTML = '<div style="color:#c00;">查詢失敗：' + escapeHtml(res.error) + '</div>'; return; }
+        if (!res || res.length === 0) { empSuggest.innerHTML = '<div style="color:#999;">查無符合的工號</div>'; return; }
+        empSuggest.innerHTML = res.map((e, i) => '<div data-i="' + i + '">' + escapeHtml(e.id) + '　' + escapeHtml(e.name) + '　' + escapeHtml(e.office) + '</div>').join('');
+        empSuggest.querySelectorAll('div[data-i]').forEach((el, i) => {
+          el.addEventListener('click', () => selectEmployee(res[i]));
+        });
+      }).catch((err) => { empSuggest.innerHTML = '<div style="color:#c00;">呼叫失敗：' + escapeHtml(err.message) + '</div>'; });
+    }, 300);
+  });
+
+  function selectEmployee(emp) {
+    currentEmployee = emp;
+    empSearch.value = emp.id + ' ' + emp.name;
+    empSuggest.innerHTML = '';
+    empCard.style.display = 'block';
+    empCard.innerHTML = '<b>' + escapeHtml(emp.name) + '</b>（' + escapeHtml(emp.id) + '）　' + escapeHtml(emp.office) + '　' + escapeHtml(emp.team);
+  }
+
+  const projSearch = document.getElementById('projSearch');
+  const projSuggest = document.getElementById('projSuggest');
+  const projInfo = document.getElementById('projInfo');
+
+  let projSearchTimer = null;
+  projSearch.addEventListener('input', () => {
+    clearTimeout(projSearchTimer);
+    const q = projSearch.value.trim();
+    selectedProject = null;
+    projInfo.style.display = 'none';
+    if (!q) { projSuggest.innerHTML = ''; return; }
+    projSearchTimer = setTimeout(() => {
+      callApi('searchProject', { query: q }).then((res) => {
+        if (res && res.error) { projSuggest.innerHTML = '<div style="color:#c00;">查詢失敗：' + escapeHtml(res.error) + '</div>'; return; }
+        if (!res || res.length === 0) { projSuggest.innerHTML = '<div style="color:#999;">查無符合的專案</div>'; return; }
+        projSuggest.innerHTML = res.map((p, i) => '<div data-i="' + i + '">' + escapeHtml(p.name) + '　（' + escapeHtml(p.client) + '）</div>').join('');
+        projSuggest.querySelectorAll('div[data-i]').forEach((el, i) => {
+          el.addEventListener('click', () => selectProject(res[i]));
+        });
+      }).catch((err) => { projSuggest.innerHTML = '<div style="color:#c00;">呼叫失敗：' + escapeHtml(err.message) + '</div>'; });
+    }, 300);
+  });
+
+  function selectProject(proj) {
+    selectedProject = proj;
+    projSearch.value = proj.name;
+    projSuggest.innerHTML = '';
+    projInfo.style.display = 'block';
+    document.getElementById('proj_client').textContent = proj.client;
+    document.getElementById('proj_code').textContent = proj.code;
+  }
+
+  const uploadedLinks = {};
+
+  function fileToBase64(file, cb) {
+    const reader = new FileReader();
+    reader.onload = () => cb(reader.result.split(',')[1], reader.result);
+    reader.readAsDataURL(file);
+  }
+
+  document.querySelectorAll('input[type=file]').forEach((input) => {
+    input.addEventListener('change', (e) => {
+      const file = e.target.files[0];
+      if (!file) return;
+      const target = input.dataset.target;
+      const isMap = target.endsWith('-map');
+      const baseTarget = target.replace('-map', '');
+      const previewSelector = (isMap ? '.mapPreview' : '.receiptPreview') + '[data-for="' + baseTarget + '"]';
+      const box = document.querySelector(previewSelector);
+      box.textContent = '上傳中...';
+      fileToBase64(file, (b64, dataUrl) => {
+        callApi('uploadFile', { base64Data: b64, filename: file.name, mimeType: file.type }).then((res) => {
+          if (!res.ok) { box.innerHTML = '<span style="color:#c00;">上傳失敗：' + escapeHtml(res.reason) + '</span>'; return; }
+          uploadedLinks[target] = res.url;
+          box.innerHTML = (isMap ? '' : '<img style="width:44px;height:44px;object-fit:cover;border-radius:6px;border:1px solid var(--border);vertical-align:middle;" src="' + dataUrl + '"> ') + '<span class="link-pill">連結已產生</span>';
+        }).catch((err) => { box.innerHTML = '<span style="color:#c00;">上傳失敗：' + escapeHtml(err.message) + '</span>'; });
+      });
+    });
+  });
+
+  function clearUploads(targets) {
+    targets.forEach((t) => { delete uploadedLinks[t]; });
+    document.querySelectorAll('.receiptPreview, .mapPreview').forEach((el) => { el.innerHTML = ''; });
+    document.querySelectorAll('input[type=file]').forEach((el) => { el.value = ''; });
+  }
+
+  const CATEGORY_FIELD_IDS = {
+    main: ['m_vehicle', 'm_city', 'm_date', 'm_dist', 'm_pax', 'm_from', 'm_to', 'm_amount'],
+    table1: ['t1_vehicle', 't1_flightNo', 't1_from', 't1_to', 't1_date', 't1_pax', 't1_receiptNo', 't1_sellerVat', 't1_amount'],
+    table2: ['t2_vehicle', 't2_date', 't2_dist', 't2_pax', 't2_from', 't2_to', 't2_amount', 't2_invDate', 't2_invAmount', 't2_invNo', 't2_invVat'],
+    table3: ['t3_applyItem', 't3_fuelType', 't3_liters', 't3_date', 't3_receiptNo', 't3_sellerVat', 't3_amount'],
+  };
+
+  function resetFormFields(cat) {
+    (CATEGORY_FIELD_IDS[cat] || []).forEach((id) => {
+      const el = document.getElementById(id);
+      if (!el) return;
+      if (el.tagName === 'SELECT') el.selectedIndex = 0;
+      else el.value = '';
+    });
+    if (cat === 'table2') { document.getElementById('t2_electricCar').checked = false; updateT2Fields(); updateT2Rate(); }
+    if (cat === 'table3') updateT3Fields();
+    document.getElementById('fNote').value = '';
+    projSearch.value = '';
+    projInfo.style.display = 'none';
+    selectedProject = null;
+    document.getElementById('costType').selectedIndex = 0;
+  }
+
+  function endEditMode() {
+    editingIndex = null;
+    document.getElementById('addItemBtn').textContent = '加入這筆明細';
+    document.getElementById('cancelEditBtn').style.display = 'none';
+  }
+
+  document.getElementById('cancelEditBtn').addEventListener('click', () => {
+    const cat = currentCategory;
+    endEditMode();
+    resetFormFields(cat);
+  });
+
+  document.getElementById('addItemBtn').addEventListener('click', () => {
+    const note = document.getElementById('fNote').value;
+
+    if (!selectedProject) { alert('請選擇服務專案'); return; }
+    const costType = document.getElementById('costType').value;
+    if (!costType) { alert('請選擇費用類別'); return; }
+
+    const common = {
+      note, costType,
+      projectId: selectedProject.subjectId,
+      client: selectedProject.client,
+      code: selectedProject.code,
+      pm: selectedProject.pm,
+    };
+
+    let it = null;
+
+    if (currentCategory === 'main') {
+      if (!document.getElementById('m_vehicle').value) { alert('請選擇交通工具'); return; }
+      if (!document.getElementById('m_city').value) { alert('請選擇計費縣市'); return; }
+      if (!document.getElementById('m_date').value) { alert('請輸入乘車日期'); return; }
+      if (num_(document.getElementById('m_pax').value) <= 0) { alert('請輸入乘車人數'); return; }
+      const amount = num_(document.getElementById('m_amount').value);
+      if (amount <= 0) { alert('請輸入總額'); return; }
+      it = Object.assign(common, {
+        category: 'main', amount,
+        vehicle: document.getElementById('m_vehicle').value,
+        city: document.getElementById('m_city').value,
+        date: document.getElementById('m_date').value,
+        dist: document.getElementById('m_dist').value,
+        pax: document.getElementById('m_pax').value,
+        from: document.getElementById('m_from').value,
+        to: document.getElementById('m_to').value,
+        receiptLink: uploadedLinks['main'] || null,
+        mapLink: uploadedLinks['main-map'] || null,
+      });
+      finalizeItem_(it, ['main', 'main-map']);
+    } else if (currentCategory === 'table1') {
+      if (!document.getElementById('t1_vehicle').value) { alert('請選擇交通工具'); return; }
+      if (!document.getElementById('t1_from').value.trim() || !document.getElementById('t1_to').value.trim()) { alert('請填寫起站與迄站'); return; }
+      if (!document.getElementById('t1_date').value) { alert('請輸入搭乘日期'); return; }
+      if (num_(document.getElementById('t1_pax').value) <= 0) { alert('請輸入乘車人數'); return; }
+      const amount = num_(document.getElementById('t1_amount').value);
+      if (amount <= 0) { alert('請輸入總額'); return; }
+      it = Object.assign(common, {
+        category: 'table1', amount,
+        vehicle: document.getElementById('t1_vehicle').value,
+        flightNo: document.getElementById('t1_flightNo').value,
+        from: document.getElementById('t1_from').value,
+        to: document.getElementById('t1_to').value,
+        date: document.getElementById('t1_date').value,
+        pax: document.getElementById('t1_pax').value,
+        receiptNo: document.getElementById('t1_receiptNo').value,
+        sellerVat: document.getElementById('t1_sellerVat').value,
+        receiptLink: uploadedLinks['table1'] || null,
+      });
+      finalizeItem_(it, ['table1']);
+    } else if (currentCategory === 'table2') {
+      const vehicle = document.getElementById('t2_vehicle').value;
+      if (!vehicle) { alert('請選擇交通工具'); return; }
+
+      if (vehicle === T2_PURE_RECEIPT) {
+        const invAmount = num_(document.getElementById('t2_invAmount').value);
+        if (invAmount <= 0) { alert('請輸入發票金額'); return; }
+        if (!uploadedLinks['table2']) { alert('請上傳發票憑證照片'); return; }
+        it = Object.assign(common, {
+          category: 'table2', vehicle: T2_PURE_RECEIPT, amount: 0,
+          invoiceDate: document.getElementById('t2_invDate').value,
+          invoiceAmount: invAmount,
+          invoiceNo: document.getElementById('t2_invNo').value,
+          invoiceVat: document.getElementById('t2_invVat').value,
+          receiptLink: uploadedLinks['table2'] || null,
+        });
+        finalizeItem_(it, ['table2']);
+      } else {
+        const dist = num_(document.getElementById('t2_dist').value);
+        const amount = num_(document.getElementById('t2_amount').value);
+        if (!document.getElementById('t2_date').value) { alert('請輸入行程日期'); return; }
+        if (dist <= 0) { alert('請輸入里程數'); return; }
+        if (!document.getElementById('t2_from').value.trim() || !document.getElementById('t2_to').value.trim()) { alert('請填寫出發與抵達地址'); return; }
+        if (num_(document.getElementById('t2_pax').value) <= 0) { alert('請輸入乘車人數'); return; }
+        if (amount <= 0) { alert('請確認總額'); return; }
+        if (!uploadedLinks['table2-map']) { alert('私車公用行程必須上傳 Map 截圖'); return; }
+        it = Object.assign(common, {
+          category: 'table2', vehicle, amount,
+          date: document.getElementById('t2_date').value,
+          dist, pax: document.getElementById('t2_pax').value,
+          electricCar: document.getElementById('t2_electricCar').checked,
+          from: document.getElementById('t2_from').value,
+          to: document.getElementById('t2_to').value,
+          mapLink: uploadedLinks['table2-map'] || null,
+        });
+        finalizeItem_(it, ['table2-map']);
+      }
+    } else if (currentCategory === 'table3') {
+      if (!document.getElementById('t3_applyItem').value) { alert('請選擇申請項目'); return; }
+      if (!document.getElementById('t3_date').value) { alert('請輸入發票或憑證日期'); return; }
+      if (!uploadedLinks['table3']) { alert('請上傳支出憑證照片'); return; }
+      const amount = num_(document.getElementById('t3_amount').value);
+      if (amount <= 0) { alert('請輸入總額'); return; }
+      it = Object.assign(common, {
+        category: 'table3', amount,
+        applyItem: document.getElementById('t3_applyItem').value,
+        fuelType: document.getElementById('t3_fuelType').value,
+        liters: document.getElementById('t3_liters').value,
+        date: document.getElementById('t3_date').value,
+        receiptNo: document.getElementById('t3_receiptNo').value,
+        sellerVat: document.getElementById('t3_sellerVat').value,
+        receiptLink: uploadedLinks['table3'] || null,
+      });
+      finalizeItem_(it, ['table3']);
+    }
+  });
+
+  function finalizeItem_(it, uploadTargets) {
+    if (editingIndex !== null) {
+      items[editingIndex] = it;
+      endEditMode();
+    } else {
+      items.push(it);
+    }
+    resetFormFields(currentCategory);
+    clearUploads(uploadTargets);
+    renderItems();
+  }
+
+  const CAT_LABELS = { main: '計程車/公車/客運', table1: '航空/高鐵/台鐵/捷運', table2: '私車公用', table3: '公務車/其他' };
+
+  function renderItems() {
+    const list = document.getElementById('itemList');
+    document.getElementById('itemCount').textContent = items.length;
+    const total = items.reduce((s, i) => s + (parseFloat(i.amount) || 0), 0);
+    document.getElementById('itemTotal').textContent = total.toLocaleString();
+    submitBtn.disabled = items.length === 0;
+    if (items.length === 0) { list.innerHTML = '<p style="color:#999;font-size:13px;">尚未加入任何明細</p>'; return; }
+    list.innerHTML = items.map((it, idx) => {
+      const isPureReceipt = it.category === 'table2' && it.vehicle === T2_PURE_RECEIPT;
+      const displayAmount = isPureReceipt ? it.invoiceAmount : it.amount;
+      const editingTag = idx === editingIndex ? '<span class="pill" style="background:var(--accent-soft);color:var(--accent);">編輯中</span>' : '';
+      return '<div class="item-card" data-idx="' + idx + '"><div><span class="cat-pill">' + CAT_LABELS[it.category] + '</span>' +
+        (it.vehicle || it.applyItem || '') + ' ' + (it.date || it.invoiceDate || '') +
+        '<span class="pill">' + escapeHtml(it.client || '') + '</span>' + editingTag +
+        '</div><div>NT$ ' + displayAmount + ' <button class="danger" data-del="' + idx + '">刪除</button></div></div>';
+    }).join('');
+    list.querySelectorAll('.item-card').forEach((card) => {
+      card.addEventListener('click', () => populateFormForEdit(items[parseInt(card.dataset.idx)], parseInt(card.dataset.idx)));
+    });
+    list.querySelectorAll('button[data-del]').forEach((b) => {
+      b.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const idx = parseInt(b.dataset.del);
+        if (idx === editingIndex) { endEditMode(); resetFormFields(currentCategory); }
+        else if (editingIndex !== null && idx < editingIndex) editingIndex -= 1;
+        items.splice(idx, 1);
+        renderItems();
+      });
+    });
+  }
+  renderItems();
+
+  function populateFormForEdit(it, idx) {
+    switchToCategory(it.category);
+    if (it.category === 'main') {
+      document.getElementById('m_vehicle').value = it.vehicle || '';
+      document.getElementById('m_city').value = it.city || '';
+      document.getElementById('m_date').value = it.date || '';
+      document.getElementById('m_dist').value = it.dist || '';
+      document.getElementById('m_pax').value = it.pax || 1;
+      document.getElementById('m_from').value = it.from || '';
+      document.getElementById('m_to').value = it.to || '';
+      document.getElementById('m_amount').value = it.amount || '';
+      if (it.receiptLink) uploadedLinks['main'] = it.receiptLink;
+      if (it.mapLink) uploadedLinks['main-map'] = it.mapLink;
+    } else if (it.category === 'table1') {
+      document.getElementById('t1_vehicle').value = it.vehicle || '';
+      document.getElementById('t1_flightNo').value = it.flightNo || '';
+      document.getElementById('t1_from').value = it.from || '';
+      document.getElementById('t1_to').value = it.to || '';
+      document.getElementById('t1_date').value = it.date || '';
+      document.getElementById('t1_pax').value = it.pax || 1;
+      document.getElementById('t1_receiptNo').value = it.receiptNo || '';
+      document.getElementById('t1_sellerVat').value = it.sellerVat || '';
+      document.getElementById('t1_amount').value = it.amount || '';
+      if (it.receiptLink) uploadedLinks['table1'] = it.receiptLink;
+    } else if (it.category === 'table2') {
+      document.getElementById('t2_vehicle').value = it.vehicle || '';
+      updateT2Fields();
+      document.getElementById('t2_date').value = it.date || '';
+      document.getElementById('t2_dist').value = it.dist || '';
+      document.getElementById('t2_pax').value = it.pax || 1;
+      document.getElementById('t2_from').value = it.from || '';
+      document.getElementById('t2_to').value = it.to || '';
+      document.getElementById('t2_amount').value = it.amount || '';
+      document.getElementById('t2_electricCar').checked = !!it.electricCar;
+      document.getElementById('t2_invDate').value = it.invoiceDate || '';
+      document.getElementById('t2_invAmount').value = it.invoiceAmount || '';
+      document.getElementById('t2_invNo').value = it.invoiceNo || '';
+      document.getElementById('t2_invVat').value = it.invoiceVat || '';
+      if (it.mapLink) uploadedLinks['table2-map'] = it.mapLink;
+      if (it.receiptLink) uploadedLinks['table2'] = it.receiptLink;
+    } else if (it.category === 'table3') {
+      document.getElementById('t3_applyItem').value = it.applyItem || '';
+      updateT3Fields();
+      document.getElementById('t3_fuelType').value = it.fuelType || '';
+      document.getElementById('t3_liters').value = it.liters || '';
+      document.getElementById('t3_date').value = it.date || '';
+      document.getElementById('t3_receiptNo').value = it.receiptNo || '';
+      document.getElementById('t3_sellerVat').value = it.sellerVat || '';
+      document.getElementById('t3_amount').value = it.amount || '';
+      if (it.receiptLink) uploadedLinks['table3'] = it.receiptLink;
+    }
+    document.getElementById('fNote').value = it.note || '';
+    document.getElementById('costType').value = it.costType || '';
+    projSearch.value = it.client || '';
+    if (it.projectId) {
+      selectedProject = { subjectId: it.projectId, name: it.client, client: it.client, code: it.code, pm: it.pm };
+      projInfo.style.display = 'block';
+      document.getElementById('proj_client').textContent = it.client;
+      document.getElementById('proj_code').textContent = it.code;
+    }
+
+    editingIndex = idx;
+    document.getElementById('addItemBtn').textContent = '更新這筆明細';
+    document.getElementById('cancelEditBtn').style.display = 'block';
+    document.getElementById('addItemBtn').scrollIntoView({ behavior: 'smooth', block: 'center' });
+  }
+
+  submitBtn.addEventListener('click', () => {
+    if (!currentEmployee) { alert('請先選擇工號'); return; }
+    submitBtn.disabled = true;
+    submitBtn.textContent = '送出中...';
+    callApi('submitFare', { formInput: { employee: currentEmployee, items: items } }).then((res) => {
+      submitBtn.textContent = '送出到 BPM';
+      const box = document.getElementById('resultBox');
+      box.style.display = 'block';
+      if (res.ok) {
+        box.className = 'ok-box';
+        box.innerHTML = '建單成功，單號：' + escapeHtml(res.subjectId) + '　總額 NT$ ' + res.total.toLocaleString() +
+          '　<span style="opacity:.6;">(後端版本:' + escapeHtml(res.apiVersion) + ')</span>' +
+          '<details><summary>查看送出的 JSON / BPM 原始回應</summary><pre>' +
+          escapeHtml(JSON.stringify({ sentJson: res.sentJson, raw: res.raw }, null, 2)) + '</pre></details>';
+        items = [];
+        if (editingIndex !== null) { endEditMode(); resetFormFields(currentCategory); }
+        renderItems();
+      } else {
+        submitBtn.disabled = false;
+        box.className = 'err-box';
+        box.innerHTML = '失敗：' + escapeHtml(res.reason || '未知錯誤') +
+          '<br>HTTP 狀態碼：' + escapeHtml(res.status) + '　Content-Type：' + escapeHtml(res.contentType || '(無)') +
+          (res.raw ? '<details><summary>BPM 原始回應</summary><pre>' + escapeHtml(res.raw) + '</pre></details>' : '<p style="color:#991b1b;">（回應內容完全空白）</p>');
+      }
+    }).catch((err) => {
+      submitBtn.disabled = false;
+      submitBtn.textContent = '送出到 BPM';
+      const box = document.getElementById('resultBox');
+      box.style.display = 'block';
+      box.className = 'err-box';
+      box.textContent = '呼叫失敗：' + err.message;
+    });
+  });
+</script>
+</body>
+</html>
