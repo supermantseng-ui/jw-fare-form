@@ -98,6 +98,10 @@
       margin-bottom:10px; transition:background .1s;
     }
     .file-btn:active { background:var(--bg); }
+    .file-input-hidden {
+      position:absolute; width:1px; height:1px; padding:0; margin:-1px;
+      overflow:hidden; clip:rect(0,0,0,0); white-space:nowrap; border:0;
+    }
   </style>
 </head>
 <body>
@@ -107,7 +111,7 @@
       <h2>交通費用申請</h2>
       <p class="sub">選好交通類別後，只會出現該類別需要的欄位；每筆明細請選對應的服務專案。</p>
       <p id="liffStatus">檢查 LINE 環境中...</p>
-      <p style="font-size:10px;color:#6b7d94;margin:8px 0 0;">前端版本：v1</p>
+      <p style="font-size:10px;color:#6b7d94;margin:8px 0 0;">前端版本：v3</p>
     </div>
   </header>
 
@@ -180,14 +184,14 @@
         <label>出發地址(有小票免填)</label><input id="m_from" type="text">
         <label>抵達地址(有小票免填)</label><input id="m_to" type="text">
         <div class="grid" style="grid-template-columns:1fr 1fr;">
-          <div><label class="file-btn" for="m_receipt_cam">📷 拍照</label><input id="m_receipt_cam" type="file" accept="image/*" capture="environment" data-target="main" style="display:none;"></div>
-          <div><label class="file-btn" for="m_receipt_gal">🖼 相簿</label><input id="m_receipt_gal" type="file" accept="image/*" data-target="main" style="display:none;"></div>
+          <div><label class="file-btn" for="m_receipt_cam">📷 拍照</label><input id="m_receipt_cam" type="file" accept="image/*" capture="environment" data-target="main" class="file-input-hidden"></div>
+          <div><label class="file-btn" for="m_receipt_gal">🖼 相簿</label><input id="m_receipt_gal" type="file" accept="image/*" data-target="main" class="file-input-hidden"></div>
         </div>
         <div class="receiptPreview" data-for="main" style="margin-top:4px;"></div>
         <label style="margin-top:8px;">Map 截圖(無小票時用)</label>
         <div class="grid" style="grid-template-columns:1fr 1fr;">
-          <div><label class="file-btn" for="m_map_cam">📷 拍照</label><input id="m_map_cam" type="file" accept="image/*" capture="environment" data-target="main-map" style="display:none;"></div>
-          <div><label class="file-btn" for="m_map_gal">🖼 相簿</label><input id="m_map_gal" type="file" accept="image/*" data-target="main-map" style="display:none;"></div>
+          <div><label class="file-btn" for="m_map_cam">📷 拍照</label><input id="m_map_cam" type="file" accept="image/*" capture="environment" data-target="main-map" class="file-input-hidden"></div>
+          <div><label class="file-btn" for="m_map_gal">🖼 相簿</label><input id="m_map_gal" type="file" accept="image/*" data-target="main-map" class="file-input-hidden"></div>
         </div>
         <div class="mapPreview" data-for="main" style="margin-top:4px;"></div>
         <label style="margin-top:8px;">總額</label>
@@ -213,8 +217,8 @@
           <div><label>賣方統一編號</label><input id="t1_sellerVat" type="text"></div>
         </div>
         <div class="grid" style="grid-template-columns:1fr 1fr;">
-          <div><label class="file-btn" for="t1_receipt_cam">📷 拍照</label><input id="t1_receipt_cam" type="file" accept="image/*" capture="environment" data-target="table1" style="display:none;"></div>
-          <div><label class="file-btn" for="t1_receipt_gal">🖼 相簿</label><input id="t1_receipt_gal" type="file" accept="image/*" data-target="table1" style="display:none;"></div>
+          <div><label class="file-btn" for="t1_receipt_cam">📷 拍照</label><input id="t1_receipt_cam" type="file" accept="image/*" capture="environment" data-target="table1" class="file-input-hidden"></div>
+          <div><label class="file-btn" for="t1_receipt_gal">🖼 相簿</label><input id="t1_receipt_gal" type="file" accept="image/*" data-target="table1" class="file-input-hidden"></div>
         </div>
         <div class="receiptPreview" data-for="table1" style="margin-top:4px;"></div>
         <label style="margin-top:8px;">總額</label>
@@ -248,8 +252,8 @@
           </div>
           <label>Map 截圖</label>
           <div class="grid" style="grid-template-columns:1fr 1fr;">
-            <div><label class="file-btn" for="t2_map_cam">📷 拍照</label><input id="t2_map_cam" type="file" accept="image/*" capture="environment" data-target="table2-map" style="display:none;"></div>
-            <div><label class="file-btn" for="t2_map_gal">🖼 相簿</label><input id="t2_map_gal" type="file" accept="image/*" data-target="table2-map" style="display:none;"></div>
+            <div><label class="file-btn" for="t2_map_cam">📷 拍照</label><input id="t2_map_cam" type="file" accept="image/*" capture="environment" data-target="table2-map" class="file-input-hidden"></div>
+            <div><label class="file-btn" for="t2_map_gal">🖼 相簿</label><input id="t2_map_gal" type="file" accept="image/*" data-target="table2-map" class="file-input-hidden"></div>
           </div>
           <div class="mapPreview" data-for="table2" style="margin-top:4px;"></div>
         </div>
@@ -258,19 +262,21 @@
           這一列不代表一趟行程，單純用來補充發票額度。
         </p>
 
-        <label style="margin-top:10px;">發票金額</label>
-        <input id="t2_invAmount" type="number" style="font-size:16px;font-weight:600;">
-        <div class="grid">
-          <div><label>發票日期</label><input id="t2_invDate" type="date"></div>
-          <div><label>發票號碼</label><input id="t2_invNo" type="text"></div>
+        <div id="t2_invoiceFields" style="display:none;">
+          <label style="margin-top:10px;">發票金額</label>
+          <input id="t2_invAmount" type="number" style="font-size:16px;font-weight:600;">
+          <div class="grid">
+            <div><label>發票日期</label><input id="t2_invDate" type="date"></div>
+            <div><label>發票號碼</label><input id="t2_invNo" type="text"></div>
+          </div>
+          <label>賣方統一編號</label><input id="t2_invVat" type="text">
+          <label>憑證照片</label>
+          <div class="grid" style="grid-template-columns:1fr 1fr;">
+            <div><label class="file-btn" for="t2_inv_cam">📷 拍照</label><input id="t2_inv_cam" type="file" accept="image/*" capture="environment" data-target="table2" class="file-input-hidden"></div>
+            <div><label class="file-btn" for="t2_inv_gal">🖼 相簿</label><input id="t2_inv_gal" type="file" accept="image/*" data-target="table2" class="file-input-hidden"></div>
+          </div>
+          <div class="receiptPreview" data-for="table2" style="margin-top:4px;"></div>
         </div>
-        <label>賣方統一編號</label><input id="t2_invVat" type="text">
-        <label>憑證照片</label>
-        <div class="grid" style="grid-template-columns:1fr 1fr;">
-          <div><label class="file-btn" for="t2_inv_cam">📷 拍照</label><input id="t2_inv_cam" type="file" accept="image/*" capture="environment" data-target="table2" style="display:none;"></div>
-          <div><label class="file-btn" for="t2_inv_gal">🖼 相簿</label><input id="t2_inv_gal" type="file" accept="image/*" data-target="table2" style="display:none;"></div>
-        </div>
-        <div class="receiptPreview" data-for="table2" style="margin-top:4px;"></div>
       </div>
 
       <div class="cat-group" data-group="table3">
@@ -296,8 +302,8 @@
           <div><label>加油公升數</label><input id="t3_liters" type="number"></div>
         </div>
         <div class="grid" style="grid-template-columns:1fr 1fr;">
-          <div><label class="file-btn" for="t3_receipt_cam">📷 拍照</label><input id="t3_receipt_cam" type="file" accept="image/*" capture="environment" data-target="table3" style="display:none;"></div>
-          <div><label class="file-btn" for="t3_receipt_gal">🖼 相簿</label><input id="t3_receipt_gal" type="file" accept="image/*" data-target="table3" style="display:none;"></div>
+          <div><label class="file-btn" for="t3_receipt_cam">📷 拍照</label><input id="t3_receipt_cam" type="file" accept="image/*" capture="environment" data-target="table3" class="file-input-hidden"></div>
+          <div><label class="file-btn" for="t3_receipt_gal">🖼 相簿</label><input id="t3_receipt_gal" type="file" accept="image/*" data-target="table3" class="file-input-hidden"></div>
         </div>
         <div class="receiptPreview" data-for="table3" style="margin-top:4px;"></div>
         <label style="margin-top:8px;">總額</label>
@@ -335,7 +341,7 @@
     return false;
   };
 
-  const GAS_URL = 'https://script.google.com/macros/s/AKfycbznsIOeAci4sX9M4veaases2srjEALVl2vnd4MfRTM8S02t3DLJHTjPGLXiFUAQAwH-JQ/exec';
+  const GAS_URL = '請填入部署好的GAS API網址(.../exec結尾)';
   const LIFF_ID = '';
 
   let currentEmployee = null;
@@ -427,6 +433,7 @@
     const isPureReceipt = document.getElementById('t2_vehicle').value === T2_PURE_RECEIPT;
     document.getElementById('t2_tripOnlyFields').style.display = isPureReceipt ? 'none' : 'block';
     document.getElementById('t2_pureReceiptHint').style.display = isPureReceipt ? 'block' : 'none';
+    document.getElementById('t2_invoiceFields').style.display = isPureReceipt ? 'block' : 'none';
   }
   document.getElementById('t2_vehicle').addEventListener('change', () => { updateT2Fields(); updateT2Rate(); });
   updateT2Fields();
