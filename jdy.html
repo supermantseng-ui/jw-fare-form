@@ -111,7 +111,7 @@
       <h2>交通費用申請</h2>
       <p class="sub">選好交通類別後，只會出現該類別需要的欄位；每筆明細請選對應的服務專案。</p>
       <p id="liffStatus">檢查 LINE 環境中...</p>
-      <p style="font-size:10px;color:#6b7d94;margin:8px 0 0;">前端版本：v5</p>
+      <p style="font-size:10px;color:#6b7d94;margin:8px 0 0;">前端版本：v7</p>
     </div>
   </header>
 
@@ -358,7 +358,7 @@
   };
 
   const GAS_URL = 'https://script.google.com/macros/s/AKfycbznsIOeAci4sX9M4veaases2srjEALVl2vnd4MfRTM8S02t3DLJHTjPGLXiFUAQAwH-JQ/exec';
-  const LIFF_ID = '';
+  const LIFF_ID = '2010694933-Grf9QtHx';
 
   let currentEmployee = null;
   let selectedProject = null;
@@ -547,30 +547,40 @@
     reader.readAsDataURL(file);
   }
 
-  document.querySelectorAll('input[type=file]').forEach((input) => {
-    input.addEventListener('change', (e) => {
-      const file = e.target.files[0];
-      if (!file) return;
-      const target = input.dataset.target;
-      const isMap = target.endsWith('-map');
-      const baseTarget = target.replace('-map', '');
-      const previewSelector = (isMap ? '.mapPreview' : '.receiptPreview') + '[data-for="' + baseTarget + '"]';
-      const box = document.querySelector(previewSelector);
-      box.textContent = '上傳中...';
-      fileToBase64(file, (b64, dataUrl) => {
-        callApi('uploadFile', { base64Data: b64, filename: file.name, mimeType: file.type }).then((res) => {
-          if (!res.ok) { box.innerHTML = '<span style="color:#c00;">上傳失敗：' + escapeHtml(res.reason) + '</span>'; return; }
-          uploadedLinks[target] = res.url;
-          box.innerHTML = (isMap ? '' : '<img style="width:44px;height:44px;object-fit:cover;border-radius:6px;border:1px solid var(--border);vertical-align:middle;" src="' + dataUrl + '"> ') + '<span class="link-pill">連結已產生</span>';
-        }).catch((err) => { box.innerHTML = '<span style="color:#c00;">上傳失敗：' + escapeHtml(err.message) + '</span>'; });
-      });
+  function handleFileInputChange(e) {
+    const input = e.target;
+    const file = input.files[0];
+    if (!file) return;
+    const target = input.dataset.target;
+    const isMap = target.endsWith('-map');
+    const baseTarget = target.replace('-map', '');
+    const previewSelector = (isMap ? '.mapPreview' : '.receiptPreview') + '[data-for="' + baseTarget + '"]';
+    const box = document.querySelector(previewSelector);
+    box.textContent = '上傳中...';
+    fileToBase64(file, (b64, dataUrl) => {
+      callApi('uploadFile', { base64Data: b64, filename: file.name, mimeType: file.type }).then((res) => {
+        if (!res.ok) { box.innerHTML = '<span style="color:#c00;">上傳失敗：' + escapeHtml(res.reason) + '</span>'; return; }
+        uploadedLinks[target] = res.url;
+        box.innerHTML = (isMap ? '' : '<img style="width:44px;height:44px;object-fit:cover;border-radius:6px;border:1px solid var(--border);vertical-align:middle;" src="' + dataUrl + '"> ') + '<span class="link-pill">連結已產生</span>';
+      }).catch((err) => { box.innerHTML = '<span style="color:#c00;">上傳失敗：' + escapeHtml(err.message) + '</span>'; });
     });
+  }
+
+  document.querySelectorAll('input[type=file]').forEach((input) => {
+    input.addEventListener('change', handleFileInputChange);
   });
 
   function clearUploads(targets) {
     targets.forEach((t) => { delete uploadedLinks[t]; });
     document.querySelectorAll('.receiptPreview, .mapPreview').forEach((el) => { el.innerHTML = ''; });
-    document.querySelectorAll('input[type=file]').forEach((el) => { el.value = ''; });
+    // 手機瀏覽器（尤其iOS）選過一次檔案後，同一個input再點擊常常叫不出選擇器，
+    // 光清空value不夠可靠，改成整個換成全新節點來徹底重置
+    document.querySelectorAll('input[type=file]').forEach((el) => {
+      const fresh = el.cloneNode(true);
+      fresh.value = '';
+      el.parentNode.replaceChild(fresh, el);
+      fresh.addEventListener('change', handleFileInputChange);
+    });
   }
 
   const CATEGORY_FIELD_IDS = {
