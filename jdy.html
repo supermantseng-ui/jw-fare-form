@@ -111,7 +111,7 @@
       <h2>交通費用申請</h2>
       <p class="sub">選好交通類別後，只會出現該類別需要的欄位；每筆明細請選對應的服務專案。</p>
       <p id="liffStatus">檢查 LINE 環境中...</p>
-      <p style="font-size:10px;color:#6b7d94;margin:8px 0 0;">前端版本：v10</p>
+      <p style="font-size:10px;color:#6b7d94;margin:8px 0 0;">前端版本：v12</p>
     </div>
   </header>
 
@@ -672,7 +672,7 @@
 
     const common = {
       note, costType,
-      projectId: selectedProject.subjectId,
+      projectId: selectedProject.name + '(' + selectedProject.subjectId + ')', // ⚠️ 格式已用真實BPM資料驗證：專案名稱(subjectId)
       client: selectedProject.client,
       code: selectedProject.code,
       pm: selectedProject.pm,
@@ -908,9 +908,9 @@
     }
     document.getElementById('fNote').value = it.note || '';
     document.getElementById('costType').value = it.costType || '';
-    projSearch.value = it.client || '';
+    projSearch.value = it.projectId || '';
     if (it.projectId) {
-      selectedProject = { subjectId: it.projectId, name: it.client, client: it.client, code: it.code, pm: it.pm };
+      selectedProject = { name: it.projectId, client: it.client, code: it.code, pm: it.pm };
       projInfo.style.display = 'block';
       document.getElementById('proj_client').textContent = it.client;
       document.getElementById('proj_code').textContent = it.code;
