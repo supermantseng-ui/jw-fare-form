@@ -111,7 +111,7 @@
       <h2>交通費用申請</h2>
       <p class="sub">選好交通類別後，只會出現該類別需要的欄位；每筆明細請選對應的服務專案。</p>
       <p id="liffStatus">檢查 LINE 環境中...</p>
-      <p style="font-size:10px;color:#6b7d94;margin:8px 0 0;">前端版本：v8</p>
+      <p style="font-size:10px;color:#6b7d94;margin:8px 0 0;">前端版本：v9</p>
     </div>
   </header>
 
@@ -132,7 +132,6 @@
           <div class="cat-tab" data-cat="table2">私車公用</div>
           <div class="cat-tab" data-cat="table3">公務車/其他</div>
         </div>
-        <button id="scanBtn" class="scan-btn" style="display:none;">📷 掃發票QR自動帶入</button>
       </div>
 
       <div style="display:flex;align-items:center;gap:10px;padding:16px 2px;">
@@ -280,6 +279,7 @@
         </p>
 
         <div id="t2_invoiceFields" style="display:none;">
+          <button id="t2_scanBtn" class="scan-btn" style="display:none;margin-bottom:12px;">📷 掃發票QR自動帶入</button>
           <label style="margin-top:10px;">發票金額</label>
           <input id="t2_invAmount" type="number" style="font-size:16px;font-weight:600;">
           <div class="grid">
@@ -297,6 +297,7 @@
       </div>
 
       <div class="cat-group" data-group="table3">
+        <button id="t3_scanBtn" class="scan-btn" style="display:none;margin-bottom:12px;">📷 掃發票QR自動帶入</button>
         <div class="grid">
           <div><label>申請項目</label>
             <select id="t3_applyItem">
@@ -388,7 +389,10 @@
     liff.init({ liffId: LIFF_ID }).then(() => {
       liffReady = true;
       document.getElementById('liffStatus').textContent = liff.isInClient() ? 'LINE環境已就緒' : '（在一般瀏覽器開啟）';
-      if (liff.isInClient()) document.getElementById('scanBtn').style.display = 'block';
+      if (liff.isInClient()) {
+        document.getElementById('t2_scanBtn').style.display = 'block';
+        document.getElementById('t3_scanBtn').style.display = 'block';
+      }
     }).catch(() => {
       document.getElementById('liffStatus').textContent = '（LIFF初始化失敗，不影響手動填寫功能）';
     });
@@ -411,28 +415,30 @@
     }
   }
 
+  // 只有私車公用（發票欄位）跟公務車/其他 這兩類才需要QR掃碼帶入發票資訊
   const QR_FIELD_MAP = {
-    main: { date: 'm_date', amount: 'm_amount' },
-    table1: { date: 't1_date', receiptNo: 't1_receiptNo', sellerVat: 't1_sellerVat', amount: 't1_amount' },
     table2: { date: 't2_invDate', receiptNo: 't2_invNo', sellerVat: 't2_invVat', amount: 't2_invAmount' },
     table3: { date: 't3_date', receiptNo: 't3_receiptNo', sellerVat: 't3_sellerVat', amount: 't3_amount' },
   };
 
-  document.getElementById('scanBtn').addEventListener('click', () => {
+  function scanInvoiceQr(category) {
     if (!liffReady) { alert('LINE環境尚未就緒'); return; }
     liff.scanCodeV2().then((res) => {
       if (!res || !res.value) return;
       const parsed = parseInvoiceQr(res.value);
       if (!parsed.ok) { alert('掃到內容但無法解析為發票格式'); return; }
-      const map = QR_FIELD_MAP[currentCategory];
+      const map = QR_FIELD_MAP[category];
       const setVal = (id, val) => { const el = document.getElementById(id); if (el) el.value = val; };
       if (map.date) setVal(map.date, parsed.date);
       if (map.receiptNo) setVal(map.receiptNo, parsed.invoiceNo);
       if (map.sellerVat) setVal(map.sellerVat, parsed.sellerVat);
       if (map.amount) setVal(map.amount, parsed.total);
-      alert('已自動帶入日期/金額' + (map.receiptNo ? '/發票號碼/賣方統編' : '') + '，請確認無誤');
+      alert('已自動帶入日期/金額/發票號碼/賣方統編，請確認無誤');
     }).catch((err) => { alert('掃描失敗：' + err); });
-  });
+  }
+
+  document.getElementById('t2_scanBtn').addEventListener('click', () => scanInvoiceQr('table2'));
+  document.getElementById('t3_scanBtn').addEventListener('click', () => scanInvoiceQr('table3'));
 
   function switchToCategory(cat) {
     document.querySelectorAll('.cat-tab').forEach((t) => t.classList.toggle('active', t.dataset.cat === cat));
