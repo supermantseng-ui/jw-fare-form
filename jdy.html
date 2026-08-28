@@ -111,7 +111,7 @@
       <h2>交通費用申請</h2>
       <p class="sub">選好交通類別後，只會出現該類別需要的欄位；每筆明細請選對應的服務專案。</p>
       <p id="liffStatus">檢查 LINE 環境中...</p>
-      <p style="font-size:10px;color:#6b7d94;margin:8px 0 0;">前端版本：v13</p>
+      <p style="font-size:10px;color:#6b7d94;margin:8px 0 0;">前端版本：v14</p>
     </div>
   </header>
 
@@ -184,6 +184,9 @@
         <div style="display:flex;align-items:center;gap:6px;margin-bottom:10px;">
           <input type="checkbox" id="m_electricCar" style="width:auto;margin:0;"><label style="margin:0;" for="m_electricCar">電動車</label>
         </div>
+        <div id="m_roundTripWrap" style="display:none;align-items:center;gap:6px;margin-bottom:10px;">
+          <input type="checkbox" id="m_roundTrip" style="width:auto;margin:0;"><label style="margin:0;" for="m_roundTrip">來回（自動產生2筆，起訖對調）</label>
+        </div>
         <label>出發地址(有小票免填)</label><input id="m_from" type="text">
         <label>抵達地址(有小票免填)</label><input id="m_to" type="text">
         <div class="grid" style="grid-template-columns:1fr 1fr;">
@@ -197,7 +200,7 @@
           <div><label class="file-btn" for="m_map_gal">🖼 相簿</label><input id="m_map_gal" type="file" accept="image/*" data-target="main-map" class="file-input-hidden"></div>
         </div>
         <div class="mapPreview" data-for="main" style="margin-top:4px;"></div>
-        <label style="margin-top:8px;">總額</label>
+        <label style="margin-top:8px;">金額</label>
         <input id="m_amount" type="number" style="font-size:16px;font-weight:600;">
       </div>
 
@@ -219,13 +222,16 @@
           <div><label>憑證號碼(票號後六碼)</label><input id="t1_receiptNo" type="text"></div>
           <div><label>賣方統一編號</label><input id="t1_sellerVat" type="text" readonly style="background:#f0f0f0;"></div>
         </div>
+        <div id="t1_roundTripWrap" style="display:none;align-items:center;gap:6px;margin:-4px 0 10px;">
+          <input type="checkbox" id="t1_roundTrip" style="width:auto;margin:0;"><label style="margin:0;" for="t1_roundTrip">來回（自動產生2筆，起訖對調）</label>
+        </div>
         <datalist id="t1_stationList"></datalist>
         <div class="grid" style="grid-template-columns:1fr 1fr;">
           <div><label class="file-btn" for="t1_receipt_cam">📷 拍照</label><input id="t1_receipt_cam" type="file" accept="image/*" capture="environment" data-target="table1" class="file-input-hidden"></div>
           <div><label class="file-btn" for="t1_receipt_gal">🖼 相簿</label><input id="t1_receipt_gal" type="file" accept="image/*" data-target="table1" class="file-input-hidden"></div>
         </div>
         <div class="receiptPreview" data-for="table1" style="margin-top:4px;"></div>
-        <label style="margin-top:8px;">總額</label>
+        <label style="margin-top:8px;">金額</label>
         <input id="t1_amount" type="number" style="font-size:16px;font-weight:600;">
       </div>
 
@@ -622,6 +628,25 @@
     });
   }
 
+  function updateMRoundTripVisibility() {
+    const v = document.getElementById('m_vehicle').value;
+    const show = v === '公車-免稅';
+    document.getElementById('m_roundTripWrap').style.display = show ? 'flex' : 'none';
+    if (!show) document.getElementById('m_roundTrip').checked = false;
+  }
+  document.getElementById('m_vehicle').addEventListener('change', updateMRoundTripVisibility);
+  updateMRoundTripVisibility();
+
+  const MRT_VEHICLES = ['台北捷運', '桃園捷運', '台中捷運', '高雄捷運'];
+  function updateT1RoundTripVisibility() {
+    const v = document.getElementById('t1_vehicle').value;
+    const show = MRT_VEHICLES.includes(v);
+    document.getElementById('t1_roundTripWrap').style.display = show ? 'flex' : 'none';
+    if (!show) document.getElementById('t1_roundTrip').checked = false;
+  }
+  document.getElementById('t1_vehicle').addEventListener('change', updateT1RoundTripVisibility);
+  updateT1RoundTripVisibility();
+
   const CATEGORY_FIELD_IDS = {
     main: ['m_vehicle', 'm_city', 'm_date', 'm_dist', 'm_pax', 'm_from', 'm_to', 'm_amount', 'm_receiptNo'],
     table1: ['t1_vehicle', 't1_flightNo', 't1_from', 't1_to', 't1_date', 't1_pax', 't1_receiptNo', 't1_sellerVat', 't1_amount'],
@@ -636,8 +661,8 @@
       if (el.tagName === 'SELECT') el.selectedIndex = 0;
       else el.value = '';
     });
-    if (cat === 'main') document.getElementById('m_electricCar').checked = false;
-    if (cat === 'table1') { updateT1Stations(); updateT1VehicleMeta(); }
+    if (cat === 'main') { document.getElementById('m_electricCar').checked = false; document.getElementById('m_roundTrip').checked = false; updateMRoundTripVisibility(); }
+    if (cat === 'table1') { updateT1Stations(); updateT1VehicleMeta(); updateT1RoundTripVisibility(); }
     if (cat === 'table2') { document.getElementById('t2_electricCar').checked = false; updateT2Fields(); updateT2Rate(); }
     if (cat === 'table3') updateT3Fields();
     document.getElementById('fNote').value = '';
@@ -697,7 +722,12 @@
         receiptLink: uploadedLinks['main'] || null,
         mapLink: uploadedLinks['main-map'] || null,
       });
-      finalizeItem_(it, ['main', 'main-map']);
+      {
+        const mReturnLeg = document.getElementById('m_roundTrip').checked
+          ? Object.assign({}, it, { from: it.to, to: it.from })
+          : null;
+        finalizeItem_(it, ['main', 'main-map'], mReturnLeg);
+      }
     } else if (currentCategory === 'table1') {
       const t1Vehicle = document.getElementById('t1_vehicle').value;
       const t1From = document.getElementById('t1_from').value;
@@ -722,7 +752,12 @@
         sellerVat: document.getElementById('t1_sellerVat').value,
         receiptLink: uploadedLinks['table1'] || null,
       });
-      finalizeItem_(it, ['table1']);
+      {
+        const t1ReturnLeg = document.getElementById('t1_roundTrip').checked
+          ? Object.assign({}, it, { from: it.to, to: it.from, fromCode: it.toCode, toCode: it.fromCode })
+          : null;
+        finalizeItem_(it, ['table1'], t1ReturnLeg);
+      }
     } else if (currentCategory === 'table2') {
       const vehicle = document.getElementById('t2_vehicle').value;
       if (!vehicle) { alert('請選擇交通工具'); return; }
@@ -801,12 +836,13 @@
     }
   });
 
-  function finalizeItem_(it, uploadTargets) {
+  function finalizeItem_(it, uploadTargets, returnLeg) {
     if (editingIndex !== null) {
       items[editingIndex] = it;
       endEditMode();
     } else {
       items.push(it);
+      if (returnLeg) items.push(returnLeg);
     }
     resetFormFields(currentCategory);
     clearUploads(uploadTargets);
