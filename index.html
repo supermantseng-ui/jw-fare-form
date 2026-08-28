@@ -142,7 +142,7 @@
       <h2>交通費用申請</h2>
       <p class="sub">選好交通類別後，只會出現該類別需要的欄位；可以用LINE掃發票QR自動帶入部分欄位。</p>
       <p id="liffStatus">檢查 LINE 環境中...</p>
-      <p style="font-size:10px;color:#6b7d94;margin:8px 0 0;">前端版本：v30</p>
+      <p style="font-size:10px;color:#6b7d94;margin:8px 0 0;">前端版本：v31</p>
     </div>
   </header>
 
@@ -203,6 +203,9 @@
         <div style="display:flex;align-items:center;gap:6px;margin-top:22px;">
           <input type="checkbox" id="m_electricCar" style="width:auto;margin:0;"><label style="margin:0;" for="m_electricCar">電動車</label>
         </div>
+        <div id="m_roundTripWrap" style="display:none;align-items:center;gap:6px;margin-top:22px;">
+          <input type="checkbox" id="m_roundTrip" style="width:auto;margin:0;"><label style="margin:0;" for="m_roundTrip">來回（自動產生2筆，起訖對調）</label>
+        </div>
       </div>
       <label>出發地址(有小票免填)</label><input id="m_from" type="text">
       <label>抵達地址(有小票免填)</label><input id="m_to" type="text">
@@ -244,6 +247,9 @@
         <div><label>乘車人數</label><input id="t1_pax" type="number" value="1"></div>
         <div><label>憑證號碼(票號後六碼)</label><input id="t1_receiptNo" type="text"></div>
         <div><label>賣方統一編號</label><input id="t1_sellerVat" type="text" readonly style="background:#f0f0f0;"></div>
+      </div>
+      <div id="t1_roundTripWrap" style="display:none;align-items:center;gap:6px;margin:-4px 0 10px;">
+        <input type="checkbox" id="t1_roundTrip" style="width:auto;margin:0;"><label style="margin:0;" for="t1_roundTrip">來回（自動產生2筆，起訖對調）</label>
       </div>
       <datalist id="t1_stationList"></datalist>
       <label>支出憑證照片</label>
@@ -499,6 +505,15 @@
     tab.addEventListener('click', () => switchToCategory(tab.dataset.cat));
   });
 
+  function updateMRoundTripVisibility() {
+    const v = document.getElementById('m_vehicle').value;
+    const show = v === '公車-免稅';
+    document.getElementById('m_roundTripWrap').style.display = show ? 'flex' : 'none';
+    if (!show) document.getElementById('m_roundTrip').checked = false;
+  }
+  document.getElementById('m_vehicle').addEventListener('change', updateMRoundTripVisibility);
+  updateMRoundTripVisibility();
+
   // ── 表單重置／編輯回填 ──────────────────────────────────
   const CATEGORY_FIELD_IDS = {
     main: ['m_vehicle', 'm_city', 'm_date', 'm_dist', 'm_pax', 'm_from', 'm_to'],
@@ -514,8 +529,8 @@
       if (el.tagName === 'SELECT') el.selectedIndex = 0;
       else el.value = '';
     });
-    if (cat === 'main') document.getElementById('m_electricCar').checked = false;
-    if (cat === 'table1') { updateT1Stations(); updateT1VehicleMeta(); }
+    if (cat === 'main') { document.getElementById('m_electricCar').checked = false; document.getElementById('m_roundTrip').checked = false; updateMRoundTripVisibility(); }
+    if (cat === 'table1') { updateT1Stations(); updateT1VehicleMeta(); updateT1RoundTripVisibility(); }
     if (cat === 'table3') updateT3Fields();
     if (cat === 'table2') {
       document.getElementById('t2_electricCar').checked = false;
@@ -636,15 +651,24 @@
     const match = stations.find((s) => s.name === name);
     return match ? match.code : '';
   }
+  const MRT_VEHICLES = ['台北捷運', '桃園捷運', '台中捷運', '高雄捷運'];
+  function updateT1RoundTripVisibility() {
+    const v = document.getElementById('t1_vehicle').value;
+    const show = MRT_VEHICLES.includes(v);
+    document.getElementById('t1_roundTripWrap').style.display = show ? 'flex' : 'none';
+    if (!show) document.getElementById('t1_roundTrip').checked = false;
+  }
   document.getElementById('t1_vehicle').addEventListener('change', () => {
     // 換交通工具後，原本填的起訖站可能不適用了，清空避免帶錯站
     document.getElementById('t1_from').value = '';
     document.getElementById('t1_to').value = '';
     updateT1Stations();
     updateT1VehicleMeta();
+    updateT1RoundTripVisibility();
   });
   updateT1Stations();
   updateT1VehicleMeta();
+  updateT1RoundTripVisibility();
 
   // ── 私車公用：依交通工具/發票格式展開對應欄位 + 補助標準自動計算 ──
   const RATE_BY_VEHICLE = { '私人汽車': 8, '私人機車': 6 };
@@ -922,6 +946,9 @@
         mapLink: uploadedLinks['main-map'] || null,
       });
       uploadTargets = ['main', 'main-map'];
+      if (document.getElementById('m_roundTrip').checked) {
+        it.roundTripReturn = Object.assign({}, it, { from: it.to, to: it.from });
+      }
     } else if (currentCategory === 'table1') {
       const vehicle = document.getElementById('t1_vehicle').value;
       const fromName = document.getElementById('t1_from').value;
@@ -940,6 +967,11 @@
         receiptLink: uploadedLinks['table1'] || null,
       });
       uploadTargets = ['table1'];
+      if (document.getElementById('t1_roundTrip').checked) {
+        it.roundTripReturn = Object.assign({}, it, {
+          from: it.to, to: it.from, fromCode: it.toCode, toCode: it.fromCode,
+        });
+      }
     } else if (currentCategory === 'table3') {
       it = Object.assign(common, {
         applyItem: document.getElementById('t3_applyItem').value,
@@ -958,7 +990,13 @@
       items[editingIndex] = it;
       endEditMode();
     } else {
+      const returnLeg = it.roundTripReturn;
+      delete it.roundTripReturn;
       items.push(it);
+      if (returnLeg) {
+        delete returnLeg.roundTripReturn;
+        items.push(returnLeg);
+      }
     }
     resetFormFields(currentCategory);
     clearUploads(uploadTargets);
