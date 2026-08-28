@@ -241,8 +241,19 @@
           </select>
         </div>
         <div><label>班次或車種</label><input id="t1_flightNo" type="text" placeholder="台鐵/航空需填"></div>
-        <div><label>起站 <span style="color:var(--danger);">*</span></label><input id="t1_from" type="text" list="t1_stationList" autocomplete="off"></div>
-        <div><label>迄站 <span style="color:var(--danger);">*</span></label><input id="t1_to" type="text" list="t1_stationList" autocomplete="off"></div>
+        <div>
+          <label>起站 <span style="color:var(--danger);">*</span></label>
+          <select id="t1_from">
+            <option value="">請選擇起站</option>
+          </select>
+        </div>
+        
+        <div>
+          <label>迄站 <span style="color:var(--danger);">*</span></label>
+          <select id="t1_to">
+            <option value="">請選擇迄站</option>
+          </select>
+        </div>
         <div><label>搭乘日期</label><input id="t1_date" type="date"></div>
         <div><label>乘車人數</label><input id="t1_pax" type="number" value="1"></div>
         <div><label>憑證號碼(票號後六碼)</label><input id="t1_receiptNo" type="text"></div>
@@ -251,7 +262,6 @@
       <div id="t1_roundTripWrap" style="display:none;align-items:center;gap:6px;margin:-4px 0 10px;">
         <input type="checkbox" id="t1_roundTrip" style="width:auto;margin:0;"><label style="margin:0;" for="t1_roundTrip">來回（自動產生2筆）</label>
       </div>
-      <datalist id="t1_stationList"></datalist>
       <label>支出憑證照片</label>
       <div class="grid" style="grid-template-columns:1fr 1fr;"><div><label class="file-btn" for="t1_receipt_cam">📷 拍照</label><input id="t1_receipt_cam" type="file" accept="image/*" capture="environment" data-target="table1" class="file-input-hidden"></div><div><label class="file-btn" for="t1_receipt_gal">🖼 相簿</label><input id="t1_receipt_gal" type="file" accept="image/*" data-target="table1" class="file-input-hidden"></div></div>
       <div class="receiptPreview" data-for="table1" style="margin-top:4px;"></div>
