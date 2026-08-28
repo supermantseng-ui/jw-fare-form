@@ -124,7 +124,7 @@
       <h2>交通費用申請</h2>
       <p class="sub">選好交通類別後，只會出現該類別需要的欄位；每筆明細請選對應的服務專案。</p>
       <p id="liffStatus">檢查 LINE 環境中...</p>
-      <p style="font-size:10px;color:#6b7d94;margin:8px 0 0;">前端版本：v17</p>
+      <p style="font-size:10px;color:#6b7d94;margin:8px 0 0;">前端版本：v18</p>
     </div>
   </header>
 
@@ -358,7 +358,9 @@
         <span>已加入明細 <span id="itemCount" class="num">0</span> 筆</span>
         <span>總額 NT$ <strong id="itemTotal" class="num">0</strong></span>
       </div>
+      <p style="font-size:11px;color:var(--ink-soft);margin:0 0 8px;">明細會自動存在這支手機裡，可以分好幾天慢慢加，累積夠了再一次送出。</p>
       <div id="itemList"></div>
+      <button id="clearAllBtn" class="danger" style="border:1px solid var(--danger);width:100%;margin-top:6px;display:none;">清空全部明細</button>
     </section>
 
     <section>
@@ -386,6 +388,46 @@
   let currentCategory = 'main';
   let liffReady = false;
   let editingIndex = null;
+
+  // ── 本地暫存：讓同仁可以分好幾天累積明細，最後月底才一次送出 ──
+  // 存在這支手機/瀏覽器裡（localStorage），換裝置或清除瀏覽器資料會遺失，
+  // 但同一支手機關掉分頁、重開App都不受影響。
+  // ⚠️ key跟事務所版(jw_fare_draft_v1)刻意不同，因為兩個網站同一個網域，localStorage是共用的
+  const DRAFT_KEY = 'jdy_fare_draft_v1';
+
+  function saveDraft() {
+    try {
+      localStorage.setItem(DRAFT_KEY, JSON.stringify({ employee: currentEmployee, items: items }));
+    } catch (e) {}
+  }
+
+  function clearDraft() {
+    try { localStorage.removeItem(DRAFT_KEY); } catch (e) {}
+  }
+
+  function loadDraftOnStartup() {
+    let draft = null;
+    try {
+      const raw = localStorage.getItem(DRAFT_KEY);
+      if (raw) draft = JSON.parse(raw);
+    } catch (e) {
+      draft = null;
+    }
+    if (draft && draft.items && draft.items.length > 0) {
+      const ok = confirm('偵測到先前累積、還沒送出的明細共 ' + draft.items.length + ' 筆，要繼續使用嗎？\n\n按「確定」繼續累積，按「取消」清空重新開始。');
+      if (ok) {
+        items = draft.items;
+        currentEmployee = draft.employee;
+        if (currentEmployee) {
+          document.getElementById('empSearch').value = currentEmployee.id + ' ' + currentEmployee.name;
+          document.getElementById('empCard').style.display = 'block';
+          document.getElementById('empCard').innerHTML = '<b>' + escapeHtml(currentEmployee.name) + '</b>（' + escapeHtml(currentEmployee.id) + '）　' + escapeHtml(currentEmployee.office) + '　' + escapeHtml(currentEmployee.team);
+        }
+      } else {
+        clearDraft();
+      }
+    }
+  }
 
   function escapeHtml(str) {
     return String(str == null ? '' : str).replace(/[&<>"']/g, (c) => ({
@@ -585,6 +627,7 @@
     empSuggest.innerHTML = '';
     empCard.style.display = 'block';
     empCard.innerHTML = '<b>' + escapeHtml(emp.name) + '</b>（' + escapeHtml(emp.id) + '）　' + escapeHtml(emp.office) + '　' + escapeHtml(emp.team);
+    saveDraft();
   }
 
   const projSearch = document.getElementById('projSearch');
@@ -890,6 +933,8 @@
   const CAT_LABELS = { main: '計程車/公車/客運', table1: '航空/高鐵/台鐵/捷運', table2: '私車公用', table3: '公務車/其他' };
 
   function renderItems() {
+    saveDraft();
+    document.getElementById('clearAllBtn').style.display = items.length > 0 ? 'block' : 'none';
     const list = document.getElementById('itemList');
     document.getElementById('itemCount').textContent = items.length;
     const total = items.reduce((s, i) => s + (parseFloat(i.amount) || 0), 0);
@@ -919,6 +964,13 @@
       });
     });
   }
+  document.getElementById('clearAllBtn').addEventListener('click', () => {
+    if (!confirm('確定要清空全部 ' + items.length + ' 筆明細嗎？這個動作沒辦法復原。')) return;
+    items = [];
+    if (editingIndex !== null) { endEditMode(); resetFormFields(currentCategory); }
+    renderItems();
+  });
+  loadDraftOnStartup();
   renderItems();
 
   function populateFormForEdit(it, idx) {
