@@ -72,6 +72,7 @@
       cursor:pointer; font-size:13px; background:#fff; transition:background .1s;
     }
     #empSuggest div:hover, .proj-suggest div:hover { background:var(--accent-soft); }
+    .proj-suggest { max-height:220px; overflow-y:auto; }
     #empCard { display:none; font-size:13px; margin-top:8px; padding:10px 12px; background:var(--accent-soft); border-radius:8px; color:var(--ink); }
 
     .proj-info { display:none; background:var(--bg); border-radius:8px; padding:10px 12px; margin:6px 0 10px; font-size:12.5px; }
@@ -111,7 +112,7 @@
       <h2>交通費用申請</h2>
       <p class="sub">選好交通類別後，只會出現該類別需要的欄位；每筆明細請選對應的服務專案。</p>
       <p id="liffStatus">檢查 LINE 環境中...</p>
-      <p style="font-size:10px;color:#6b7d94;margin:8px 0 0;">前端版本：v14</p>
+      <p style="font-size:10px;color:#6b7d94;margin:8px 0 0;">前端版本：v16</p>
     </div>
   </header>
 
@@ -185,7 +186,7 @@
           <input type="checkbox" id="m_electricCar" style="width:auto;margin:0;"><label style="margin:0;" for="m_electricCar">電動車</label>
         </div>
         <div id="m_roundTripWrap" style="display:none;align-items:center;gap:6px;margin-bottom:10px;">
-          <input type="checkbox" id="m_roundTrip" style="width:auto;margin:0;"><label style="margin:0;" for="m_roundTrip">來回（自動產生2筆）</label>
+          <input type="checkbox" id="m_roundTrip" style="width:auto;margin:0;"><label style="margin:0;" for="m_roundTrip">來回（自動產生2筆，起訖對調）</label>
         </div>
         <label>出發地址(有小票免填)</label><input id="m_from" type="text">
         <label>抵達地址(有小票免填)</label><input id="m_to" type="text">
@@ -200,7 +201,7 @@
           <div><label class="file-btn" for="m_map_gal">🖼 相簿</label><input id="m_map_gal" type="file" accept="image/*" data-target="main-map" class="file-input-hidden"></div>
         </div>
         <div class="mapPreview" data-for="main" style="margin-top:4px;"></div>
-        <label style="margin-top:8px;">金額</label>
+        <label style="margin-top:8px;">總額</label>
         <input id="m_amount" type="number" style="font-size:16px;font-weight:600;">
       </div>
 
@@ -215,23 +216,24 @@
             </select>
           </div>
           <div><label>班次或車種</label><input id="t1_flightNo" type="text" placeholder="台鐵/航空需填"></div>
-          <div><label>起站 <span style="color:var(--danger);">*</span></label><input id="t1_from" type="text" list="t1_stationList" autocomplete="off"></div>
-          <div><label>迄站 <span style="color:var(--danger);">*</span></label><input id="t1_to" type="text" list="t1_stationList" autocomplete="off"></div>
+          <div><label>起站 <span style="color:var(--danger);">*</span></label><input id="t1_from" type="text" autocomplete="off"></div>
+          <div><label>迄站 <span style="color:var(--danger);">*</span></label><input id="t1_to" type="text" autocomplete="off"></div>
           <div><label>搭乘日期</label><input id="t1_date" type="date"></div>
           <div><label>乘車人數</label><input id="t1_pax" type="number" value="1"></div>
           <div><label>憑證號碼(票號後六碼)</label><input id="t1_receiptNo" type="text"></div>
           <div><label>賣方統一編號</label><input id="t1_sellerVat" type="text" readonly style="background:#f0f0f0;"></div>
         </div>
+        <div id="t1_fromSuggest" class="proj-suggest"></div>
+        <div id="t1_toSuggest" class="proj-suggest"></div>
         <div id="t1_roundTripWrap" style="display:none;align-items:center;gap:6px;margin:-4px 0 10px;">
-          <input type="checkbox" id="t1_roundTrip" style="width:auto;margin:0;"><label style="margin:0;" for="t1_roundTrip">來回（自動產生2筆）</label>
+          <input type="checkbox" id="t1_roundTrip" style="width:auto;margin:0;"><label style="margin:0;" for="t1_roundTrip">來回（自動產生2筆，起訖對調）</label>
         </div>
-        <datalist id="t1_stationList"></datalist>
         <div class="grid" style="grid-template-columns:1fr 1fr;">
           <div><label class="file-btn" for="t1_receipt_cam">📷 拍照</label><input id="t1_receipt_cam" type="file" accept="image/*" capture="environment" data-target="table1" class="file-input-hidden"></div>
           <div><label class="file-btn" for="t1_receipt_gal">🖼 相簿</label><input id="t1_receipt_gal" type="file" accept="image/*" data-target="table1" class="file-input-hidden"></div>
         </div>
         <div class="receiptPreview" data-for="table1" style="margin-top:4px;"></div>
-        <label style="margin-top:8px;">金額</label>
+        <label style="margin-top:8px;">總額</label>
         <input id="t1_amount" type="number" style="font-size:16px;font-weight:600;">
       </div>
 
@@ -497,24 +499,45 @@
     if (v === '台鐵悠遊卡') document.getElementById('t1_flightNo').value = '區間車';
   }
 
-  function updateT1Stations() {
-    const vehicle = document.getElementById('t1_vehicle').value;
-    const list = document.getElementById('t1_stationList');
-    const stations = T1_STATIONS[vehicle] || [];
-    list.innerHTML = stations.map((s) => '<option value="' + s.name + '">').join('');
-  }
   function lookupStationCode(vehicle, name) {
     const stations = T1_STATIONS[vehicle] || [];
     const match = stations.find((s) => s.name === name);
     return match ? match.code : '';
   }
+
+  // ⚠️ iOS Safari不支援<datalist>，改用跟工號/服務專案一樣的「打字→點選」建議清單，
+  // 兩平台都能正常運作
+  function bindStationSuggest(inputId, suggestBoxId) {
+    const input = document.getElementById(inputId);
+    const box = document.getElementById(suggestBoxId);
+    function render() {
+      const vehicle = document.getElementById('t1_vehicle').value;
+      const q = input.value.trim();
+      const stations = T1_STATIONS[vehicle] || [];
+      if (!vehicle) { box.innerHTML = ''; return; }
+      const matches = q ? stations.filter((s) => s.name.includes(q)) : stations;
+      if (matches.length === 0) { box.innerHTML = '<div style="color:#999;cursor:default;">查無符合的站名</div>'; return; }
+      box.innerHTML = matches.map((s, i) => '<div data-i="' + i + '">' + escapeHtml(s.name) + '</div>').join('');
+      box.querySelectorAll('div[data-i]').forEach((el, i) => {
+        el.addEventListener('click', () => {
+          input.value = matches[i].name;
+          box.innerHTML = '';
+        });
+      });
+    }
+    input.addEventListener('focus', render);
+    input.addEventListener('input', render);
+  }
+  bindStationSuggest('t1_from', 't1_fromSuggest');
+  bindStationSuggest('t1_to', 't1_toSuggest');
+
   document.getElementById('t1_vehicle').addEventListener('change', () => {
     document.getElementById('t1_from').value = '';
     document.getElementById('t1_to').value = '';
-    updateT1Stations();
+    document.getElementById('t1_fromSuggest').innerHTML = '';
+    document.getElementById('t1_toSuggest').innerHTML = '';
     updateT1VehicleMeta();
   });
-  updateT1Stations();
   updateT1VehicleMeta();
 
   function updateT3Fields() {
@@ -662,7 +685,12 @@
       else el.value = '';
     });
     if (cat === 'main') { document.getElementById('m_electricCar').checked = false; document.getElementById('m_roundTrip').checked = false; updateMRoundTripVisibility(); }
-    if (cat === 'table1') { updateT1Stations(); updateT1VehicleMeta(); updateT1RoundTripVisibility(); }
+    if (cat === 'table1') {
+      updateT1VehicleMeta();
+      updateT1RoundTripVisibility();
+      document.getElementById('t1_fromSuggest').innerHTML = '';
+      document.getElementById('t1_toSuggest').innerHTML = '';
+    }
     if (cat === 'table2') { document.getElementById('t2_electricCar').checked = false; updateT2Fields(); updateT2Rate(); }
     if (cat === 'table3') updateT3Fields();
     document.getElementById('fNote').value = '';
@@ -900,7 +928,6 @@
       if (it.mapLink) uploadedLinks['main-map'] = it.mapLink;
     } else if (it.category === 'table1') {
       document.getElementById('t1_vehicle').value = it.vehicle || '';
-      updateT1Stations();
       updateT1VehicleMeta();
       document.getElementById('t1_flightNo').value = it.flightNo || '';
       document.getElementById('t1_from').value = it.from || '';
