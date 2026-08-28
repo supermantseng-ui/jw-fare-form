@@ -92,6 +92,7 @@
       cursor:pointer; font-size:13px; background:#fff; transition:background .1s;
     }
     #empSuggest div:hover, .proj-suggest div:hover { background:var(--accent-soft); }
+    .proj-suggest { max-height:220px; overflow-y:auto; }
     #empCard {
       display:none; font-size:13px; margin-top:8px; padding:10px 12px;
       background:var(--accent-soft); border-radius:8px; color:var(--ink);
@@ -142,7 +143,7 @@
       <h2>交通費用申請</h2>
       <p class="sub">選好交通類別後，只會出現該類別需要的欄位；可以用LINE掃發票QR自動帶入部分欄位。</p>
       <p id="liffStatus">檢查 LINE 環境中...</p>
-      <p style="font-size:10px;color:#6b7d94;margin:8px 0 0;">前端版本：v32</p>
+      <p style="font-size:10px;color:#6b7d94;margin:8px 0 0;">前端版本：v33</p>
     </div>
   </header>
 
@@ -656,13 +657,13 @@
   function bindStationSuggest(inputId, suggestBoxId) {
     const input = document.getElementById(inputId);
     const box = document.getElementById(suggestBoxId);
-    input.addEventListener('input', () => {
+    function render() {
       const vehicle = document.getElementById('t1_vehicle').value;
       const q = input.value.trim();
       const stations = T1_STATIONS[vehicle] || [];
-      if (!q) { box.innerHTML = ''; return; }
-      const matches = stations.filter((s) => s.name.includes(q)).slice(0, 8);
-      if (matches.length === 0) { box.innerHTML = ''; return; }
+      if (!vehicle) { box.innerHTML = ''; return; }
+      const matches = q ? stations.filter((s) => s.name.includes(q)) : stations;
+      if (matches.length === 0) { box.innerHTML = '<div style="color:#999;cursor:default;">查無符合的站名</div>'; return; }
       box.innerHTML = matches.map((s, i) => '<div data-i="' + i + '">' + escapeHtml(s.name) + '</div>').join('');
       box.querySelectorAll('div[data-i]').forEach((el, i) => {
         el.addEventListener('click', () => {
@@ -670,7 +671,10 @@
           box.innerHTML = '';
         });
       });
-    });
+    }
+    // 點擊/聚焦就先跳出完整清單（跟選交通工具一樣的體驗），打字則會即時篩選縮小範圍
+    input.addEventListener('focus', render);
+    input.addEventListener('input', render);
   }
   bindStationSuggest('t1_from', 't1_fromSuggest');
   bindStationSuggest('t1_to', 't1_toSuggest');
