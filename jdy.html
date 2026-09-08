@@ -115,6 +115,14 @@
       position:absolute; width:1px; height:1px; padding:0; margin:-1px;
       overflow:hidden; clip:rect(0,0,0,0); white-space:nowrap; border:0;
     }
+    #scanToast {
+      display:none; position:fixed; left:16px; right:16px; bottom:24px; z-index:999;
+      padding:14px 16px; border-radius:10px; font-size:13.5px; font-weight:600; text-align:center;
+      box-shadow:0 6px 20px rgba(0,0,0,.25); animation:toastIn .2s ease-out;
+    }
+    #scanToast.ok { background:var(--ok); color:#fff; }
+    #scanToast.err { background:var(--danger); color:#fff; }
+    @keyframes toastIn { from { opacity:0; transform:translateY(8px); } to { opacity:1; transform:translateY(0); } }
   </style>
 </head>
 <body>
@@ -124,9 +132,11 @@
       <h2>交通費用申請</h2>
       <p class="sub">選好交通類別後，只會出現該類別需要的欄位；每筆明細請選對應的服務專案。</p>
       <p id="liffStatus">檢查 LINE 環境中...</p>
-      <p style="font-size:10px;color:#6b7d94;margin:8px 0 0;">前端版本：v18</p>
+      <p style="font-size:10px;color:#6b7d94;margin:8px 0 0;">前端版本：v19</p>
     </div>
   </header>
+
+  <div id="scanToast"></div>
 
   <div class="wrap">
     <section>
@@ -297,7 +307,8 @@
         </p>
 
         <div id="t2_invoiceFields" style="display:none;">
-          <button id="t2_scanBtn" class="scan-btn" style="display:none;margin-bottom:12px;">📷 掃發票QR自動帶入</button>
+          <button id="t2_scanBtn" class="scan-btn" style="display:none;margin-bottom:0;">📷 掃發票QR自動帶入</button>
+          <p id="t2_scanHint" style="display:none;font-size:10.5px;color:#8fa5bd;text-align:center;margin:6px 0 12px;">掃到綠框後畫面可能會停留幾秒才關閉，這是LINE本身的動作，請耐心等候，不是當機</p>
           <label style="margin-top:10px;">發票金額</label>
           <input id="t2_invAmount" type="number" style="font-size:16px;font-weight:600;">
           <div class="grid">
@@ -315,7 +326,8 @@
       </div>
 
       <div class="cat-group" data-group="table3">
-        <button id="t3_scanBtn" class="scan-btn" style="display:none;margin-bottom:12px;">📷 掃發票QR自動帶入</button>
+        <button id="t3_scanBtn" class="scan-btn" style="display:none;margin-bottom:0;">📷 掃發票QR自動帶入</button>
+        <p id="t3_scanHint" style="display:none;font-size:10.5px;color:#8fa5bd;text-align:center;margin:6px 0 12px;">掃到綠框後畫面可能會停留幾秒才關閉，這是LINE本身的動作，請耐心等候，不是當機</p>
         <div class="grid">
           <div><label>申請項目</label>
             <select id="t3_applyItem">
@@ -435,6 +447,16 @@
     }[c]));
   }
 
+  let toastTimer = null;
+  function showToast(msg, type) {
+    const el = document.getElementById('scanToast');
+    clearTimeout(toastTimer);
+    el.className = type === 'err' ? 'err' : 'ok';
+    el.textContent = msg;
+    el.style.display = 'block';
+    toastTimer = setTimeout(() => { el.style.display = 'none'; }, 3500);
+  }
+
   function num_(v) { return parseFloat(v) || 0; }
 
   function callApi(action, data) {
@@ -452,6 +474,8 @@
       if (liff.isInClient()) {
         document.getElementById('t2_scanBtn').style.display = 'block';
         document.getElementById('t3_scanBtn').style.display = 'block';
+        document.getElementById('t2_scanHint').style.display = 'block';
+        document.getElementById('t3_scanHint').style.display = 'block';
       }
     }).catch(() => {
       document.getElementById('liffStatus').textContent = '（LIFF初始化失敗，不影響手動填寫功能）';
@@ -481,19 +505,19 @@
   };
 
   function scanInvoiceQr(category) {
-    if (!liffReady) { alert('LINE環境尚未就緒'); return; }
+    if (!liffReady) { showToast('LINE環境尚未就緒', 'err'); return; }
     liff.scanCodeV2().then((res) => {
       if (!res || !res.value) return;
       const parsed = parseInvoiceQr(res.value);
-      if (!parsed.ok) { alert('掃到內容但無法解析為發票格式'); return; }
+      if (!parsed.ok) { showToast('掃到內容但無法解析為發票格式', 'err'); return; }
       const map = QR_FIELD_MAP[category];
       const setVal = (id, val) => { const el = document.getElementById(id); if (el) el.value = val; };
       if (map.date) setVal(map.date, parsed.date);
       if (map.receiptNo) setVal(map.receiptNo, parsed.invoiceNo);
       if (map.sellerVat) setVal(map.sellerVat, parsed.sellerVat);
       if (map.amount) setVal(map.amount, parsed.total);
-      alert('已自動帶入日期/金額/發票號碼/賣方統編，請確認無誤');
-    }).catch((err) => { alert('掃描失敗：' + err); });
+      showToast('✅ 已自動帶入日期/金額/發票號碼/賣方統編，請確認無誤', 'ok');
+    }).catch((err) => { showToast('掃描失敗：' + err, 'err'); });
   }
 
   document.getElementById('t2_scanBtn').addEventListener('click', () => scanInvoiceQr('table2'));
