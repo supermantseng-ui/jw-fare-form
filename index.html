@@ -163,7 +163,7 @@
       <h2>交通費用申請</h2>
       <p class="sub">選好交通類別後，只會出現該類別需要的欄位；可以用LINE掃發票QR自動帶入部分欄位。</p>
       <p id="liffStatus">檢查 LINE 環境中...</p>
-      <p style="font-size:10px;color:#6b7d94;margin:8px 0 0;">前端版本：v38</p>
+      <p style="font-size:10px;color:#6b7d94;margin:8px 0 0;">前端版本：v39</p>
     </div>
   </header>
 
@@ -231,8 +231,8 @@
           <input type="checkbox" id="m_roundTrip" style="width:auto;margin:0;"><label style="margin:0;white-space:nowrap;" for="m_roundTrip">來回（自動產生2筆）</label>
         </div>
       </div>
-      <label>出發地址(有小票免填)</label><input id="m_from" type="text">
-      <label>抵達地址(有小票免填)</label><input id="m_to" type="text">
+      <div class="station-field"><label>出發地址(有小票免填)</label><input id="m_from" type="text"><div id="m_fromSuggest" class="station-dropdown"></div></div>
+      <div class="station-field"><label>抵達地址(有小票免填)</label><input id="m_to" type="text"><div id="m_toSuggest" class="station-dropdown"></div></div>
       <div class="grid">
         <div>
           <label>支出憑證照片</label>
@@ -301,8 +301,8 @@
         <input id="t2_amount" type="number" style="font-size:16px;font-weight:600;">
 
         <div class="grid">
-          <div><label>出發地址 <span style="color:var(--danger);">*</span></label><input id="t2_from" type="text"></div>
-          <div><label>抵達地址 <span style="color:var(--danger);">*</span></label><input id="t2_to" type="text"></div>
+          <div class="station-field"><label>出發地址 <span style="color:var(--danger);">*</span></label><input id="t2_from" type="text"><div id="t2_fromSuggest" class="station-dropdown"></div></div>
+          <div class="station-field"><label>抵達地址 <span style="color:var(--danger);">*</span></label><input id="t2_to" type="text"><div id="t2_toSuggest" class="station-dropdown"></div></div>
         </div>
 
         <div style="display:flex;align-items:center;gap:6px;margin-bottom:10px;">
@@ -468,6 +468,58 @@
     }
   }
 
+  // ── 地址記憶：把使用者打過的出發/抵達地址記下來，越用越好用 ──
+  // 一樣存在這支手機的localStorage裡，不同於「暫存明細」，這份是長期累積、
+  // 不會因為送出BPM而清空。
+  const ADDRESS_HISTORY_KEY = 'jw_address_history_v1';
+  const ADDRESS_HISTORY_MAX = 50;
+
+  function loadAddressHistory() {
+    try {
+      const raw = localStorage.getItem(ADDRESS_HISTORY_KEY);
+      return raw ? JSON.parse(raw) : [];
+    } catch (e) {
+      return [];
+    }
+  }
+
+  function rememberAddress(addr) {
+    addr = (addr || '').trim();
+    if (!addr) return;
+    try {
+      let list = loadAddressHistory();
+      list = list.filter((a) => a !== addr);
+      list.unshift(addr);
+      if (list.length > ADDRESS_HISTORY_MAX) list = list.slice(0, ADDRESS_HISTORY_MAX);
+      localStorage.setItem(ADDRESS_HISTORY_KEY, JSON.stringify(list));
+    } catch (e) {}
+  }
+
+  function bindAddressSuggest(inputId, suggestBoxId) {
+    const input = document.getElementById(inputId);
+    const box = document.getElementById(suggestBoxId);
+    function render() {
+      const q = input.value.trim();
+      const history = loadAddressHistory();
+      if (history.length === 0) { box.innerHTML = ''; return; }
+      const matches = q ? history.filter((a) => a.includes(q)) : history;
+      if (matches.length === 0) { box.innerHTML = ''; return; }
+      box.innerHTML = matches.map((a, i) => '<div data-i="' + i + '">' + escapeHtml(a) + '</div>').join('');
+      box.querySelectorAll('div[data-i]').forEach((el, i) => {
+        el.addEventListener('click', () => {
+          input.value = matches[i];
+          box.innerHTML = '';
+        });
+      });
+    }
+    input.addEventListener('focus', render);
+    input.addEventListener('input', render);
+  }
+  bindAddressSuggest('m_from', 'm_fromSuggest');
+  bindAddressSuggest('m_to', 'm_toSuggest');
+  bindAddressSuggest('t2_from', 't2_fromSuggest');
+  bindAddressSuggest('t2_to', 't2_toSuggest');
+
   function escapeHtml(str) {
     return String(str == null ? '' : str).replace(/[&<>"']/g, (c) => ({
       '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;',
@@ -584,7 +636,7 @@
 
   function updateMRoundTripVisibility() {
     const v = document.getElementById('m_vehicle').value;
-    const show = v === '公車-免稅';
+    const show = v === '公車-免稅' || v === '客運-應稅';
     document.getElementById('m_roundTripWrap').style.display = show ? 'flex' : 'none';
     if (!show) document.getElementById('m_roundTrip').checked = false;
   }
@@ -972,6 +1024,8 @@
         receiptFormat: receiptFormat,
       };
       uploadTargets = ['table2-map'];
+      rememberAddress(from);
+      rememberAddress(to);
 
       if (!isMerge) {
         const invDate = document.getElementById('t2_invDate').value;
@@ -1050,6 +1104,8 @@
         mapLink: uploadedLinks['main-map'] || null,
       });
       uploadTargets = ['main', 'main-map'];
+      rememberAddress(it.from);
+      rememberAddress(it.to);
       if (document.getElementById('m_roundTrip').checked) {
         it.roundTripReturn = Object.assign({}, it, { from: it.to, to: it.from });
       }
