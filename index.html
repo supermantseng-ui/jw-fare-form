@@ -163,7 +163,7 @@
       <h2>交通費用申請</h2>
       <p class="sub">選好交通類別後，只會出現該類別需要的欄位；可以用LINE掃發票QR自動帶入部分欄位。</p>
       <p id="liffStatus">檢查 LINE 環境中...</p>
-      <p style="font-size:10px;color:#6b7d94;margin:8px 0 0;">前端版本：v40</p>
+      <p style="font-size:10px;color:#6b7d94;margin:8px 0 0;">前端版本：v41</p>
     </div>
   </header>
 
@@ -178,6 +178,7 @@
   <section id="liffBlockSection" style="display:none;">
     <p style="margin:0;color:var(--danger);font-size:13.5px;font-weight:600;">⚠️ 請透過LINE官方連結進入本系統</p>
     <p style="margin:8px 0 0;color:var(--ink-soft);font-size:12.5px;">一般網址已不再開放使用，麻煩改用公告過的LINE連結重新進入。</p>
+    <p id="liffBlockDetail" style="margin:10px 0 0;color:#b8863f;font-size:11px;word-break:break-all;"></p>
   </section>
 
   <section id="firstBindSection" style="display:none;">
@@ -571,9 +572,13 @@
   // ── LIFF 初始化（非必要，不在LINE裡開也能正常用其他功能）────
   let currentLineUserId = null;
 
-  function showLiffBlock() {
+  function showLiffBlock(reason) {
     document.getElementById('liffLoadingSection').style.display = 'none';
     document.getElementById('liffBlockSection').style.display = 'block';
+    if (reason) {
+      const detail = document.getElementById('liffBlockDetail');
+      if (detail) detail.textContent = '（除錯資訊：' + reason + '）';
+    }
   }
 
   function unlockMainForm() {
@@ -611,25 +616,25 @@
         currentLineUserId = profile.userId;
         callApi('checkLineBinding', { lineUserId: currentLineUserId }).then((res) => {
           if (!res.ok) {
-            showLiffBlock();
+            showLiffBlock('checkLineBinding回應失敗：' + (res.reason || JSON.stringify(res)));
             return;
           }
           if (res.bound && !res.employeeNotFound) {
             showBoundIdentity(res.employee);
           } else if (res.bound && res.employeeNotFound) {
             document.getElementById('liffBlockSection').innerHTML =
-              '<p style="margin:0;color:var(--danger);font-size:13.5px;font-weight:600;">⚠️ 綁定的工號（' + escapeHtml(res.employeeId) + '）目前查無資料</p><p style="margin:8px 0 0;color:var(--ink-soft);font-size:12.5px;">可能是工號異動或資料調整，請聯繫管理員協助確認。</p>';
+              '<p style="margin:0;color:var(--danger);font-size:13.5px;font-weight:600;">⚠️ 綁定的工號（' + escapeHtml(res.employeeId) + '）目前查無資料</p><p style="margin:8px 0 0;color:var(--ink-soft);font-size:12.5px;">可能是工號異動或資料調整，請聯繫管理員協助確認。</p><p id="liffBlockDetail" style="margin:10px 0 0;color:#b8863f;font-size:11px;word-break:break-all;"></p>';
             showLiffBlock();
           } else {
             showFirstBindFlow();
           }
-        }).catch(() => { showLiffBlock(); });
-      }).catch(() => { showLiffBlock(); });
+        }).catch((err) => { showLiffBlock('呼叫checkLineBinding失敗：' + err.message); });
+      }).catch((err) => { showLiffBlock('liff.getProfile()失敗：' + err.message + '（很可能是LIFF的Scope沒有勾選profile）'); });
     }).catch((err) => {
-      showLiffBlock();
+      showLiffBlock('liff.init()失敗：' + (err && err.message ? err.message : JSON.stringify(err)));
     });
   } else {
-    showLiffBlock();
+    showLiffBlock('LIFF_ID未設定或liff SDK未載入');
   }
 
   // ── 發票QR解析 ──────────────────────────────────
