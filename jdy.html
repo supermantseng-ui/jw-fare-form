@@ -132,7 +132,7 @@
       <h2>交通費用申請</h2>
       <p class="sub">選好交通類別後，只會出現該類別需要的欄位；每筆明細請選對應的服務專案。</p>
       <p id="liffStatus">檢查 LINE 環境中...</p>
-      <p style="font-size:10px;color:#6b7d94;margin:8px 0 0;">前端版本：v20</p>
+      <p style="font-size:10px;color:#6b7d94;margin:8px 0 0;">前端版本：v21</p>
     </div>
   </header>
 
@@ -210,8 +210,8 @@
         <div id="m_roundTripWrap" style="display:none;align-items:center;gap:6px;margin-bottom:10px;">
           <input type="checkbox" id="m_roundTrip" style="width:auto;margin:0;"><label style="margin:0;" for="m_roundTrip">來回（自動產生2筆，起訖對調）</label>
         </div>
-        <label>出發地址(有小票免填)</label><input id="m_from" type="text">
-        <label>抵達地址(有小票免填)</label><input id="m_to" type="text">
+        <div class="station-field"><label>出發地址(有小票免填)</label><input id="m_from" type="text"><div id="m_fromSuggest" class="station-dropdown"></div></div>
+        <div class="station-field"><label>抵達地址(有小票免填)</label><input id="m_to" type="text"><div id="m_toSuggest" class="station-dropdown"></div></div>
         <div class="grid" style="grid-template-columns:1fr 1fr;">
           <div><label class="file-btn" for="m_receipt_cam">📷 拍照</label><input id="m_receipt_cam" type="file" accept="image/*" capture="environment" data-target="main" class="file-input-hidden"></div>
           <div><label class="file-btn" for="m_receipt_gal">🖼 相簿</label><input id="m_receipt_gal" type="file" accept="image/*" data-target="main" class="file-input-hidden"></div>
@@ -276,8 +276,8 @@
           <label>總額（依補助標準自動算出，可調整）</label>
           <input id="t2_amount" type="number" style="font-size:16px;font-weight:600;">
           <div class="grid">
-            <div><label>出發地址</label><input id="t2_from" type="text"></div>
-            <div><label>抵達地址</label><input id="t2_to" type="text"></div>
+            <div class="station-field"><label>出發地址</label><input id="t2_from" type="text"><div id="t2_fromSuggest" class="station-dropdown"></div></div>
+            <div class="station-field"><label>抵達地址</label><input id="t2_to" type="text"><div id="t2_toSuggest" class="station-dropdown"></div></div>
           </div>
           <div style="display:flex;align-items:center;gap:6px;margin-bottom:10px;">
             <input type="checkbox" id="t2_electricCar" style="width:auto;margin:0;"><label style="margin:0;" for="t2_electricCar">電動車</label>
@@ -440,6 +440,56 @@
       }
     }
   }
+
+  // ── 地址記憶：把使用者打過的出發/抵達地址記下來，越用越好用 ──
+  const ADDRESS_HISTORY_KEY = 'jdy_address_history_v1';
+  const ADDRESS_HISTORY_MAX = 50;
+
+  function loadAddressHistory() {
+    try {
+      const raw = localStorage.getItem(ADDRESS_HISTORY_KEY);
+      return raw ? JSON.parse(raw) : [];
+    } catch (e) {
+      return [];
+    }
+  }
+
+  function rememberAddress(addr) {
+    addr = (addr || '').trim();
+    if (!addr) return;
+    try {
+      let list = loadAddressHistory();
+      list = list.filter((a) => a !== addr);
+      list.unshift(addr);
+      if (list.length > ADDRESS_HISTORY_MAX) list = list.slice(0, ADDRESS_HISTORY_MAX);
+      localStorage.setItem(ADDRESS_HISTORY_KEY, JSON.stringify(list));
+    } catch (e) {}
+  }
+
+  function bindAddressSuggest(inputId, suggestBoxId) {
+    const input = document.getElementById(inputId);
+    const box = document.getElementById(suggestBoxId);
+    function render() {
+      const q = input.value.trim();
+      const history = loadAddressHistory();
+      if (history.length === 0) { box.innerHTML = ''; return; }
+      const matches = q ? history.filter((a) => a.includes(q)) : history;
+      if (matches.length === 0) { box.innerHTML = ''; return; }
+      box.innerHTML = matches.map((a, i) => '<div data-i="' + i + '">' + escapeHtml(a) + '</div>').join('');
+      box.querySelectorAll('div[data-i]').forEach((el, i) => {
+        el.addEventListener('click', () => {
+          input.value = matches[i];
+          box.innerHTML = '';
+        });
+      });
+    }
+    input.addEventListener('focus', render);
+    input.addEventListener('input', render);
+  }
+  bindAddressSuggest('m_from', 'm_fromSuggest');
+  bindAddressSuggest('m_to', 'm_toSuggest');
+  bindAddressSuggest('t2_from', 't2_fromSuggest');
+  bindAddressSuggest('t2_to', 't2_toSuggest');
 
   function escapeHtml(str) {
     return String(str == null ? '' : str).replace(/[&<>"']/g, (c) => ({
@@ -730,7 +780,7 @@
 
   function updateMRoundTripVisibility() {
     const v = document.getElementById('m_vehicle').value;
-    const show = v === '公車-免稅';
+    const show = v === '公車-免稅' || v === '客運-應稅';
     document.getElementById('m_roundTripWrap').style.display = show ? 'flex' : 'none';
     if (!show) document.getElementById('m_roundTrip').checked = false;
   }
@@ -828,6 +878,8 @@
         mapLink: uploadedLinks['main-map'] || null,
       });
       {
+        rememberAddress(it.from);
+        rememberAddress(it.to);
         const mReturnLeg = document.getElementById('m_roundTrip').checked
           ? Object.assign({}, it, { from: it.to, to: it.from })
           : null;
@@ -902,6 +954,8 @@
           receiptFormat: receiptFormat,
         });
         const uploadTargets = ['table2-map'];
+        rememberAddress(it.from);
+        rememberAddress(it.to);
         if (!isMerge) {
           const invDate = document.getElementById('t2_invDate').value;
           const invAmount = num_(document.getElementById('t2_invAmount').value);
