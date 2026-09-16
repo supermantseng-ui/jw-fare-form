@@ -163,7 +163,7 @@
       <h2>交通費用申請</h2>
       <p class="sub">選好交通類別後，只會出現該類別需要的欄位；可以用LINE掃發票QR自動帶入部分欄位。</p>
       <p id="liffStatus">檢查 LINE 環境中...</p>
-      <p style="font-size:10px;color:#6b7d94;margin:8px 0 0;">前端版本：v44</p>
+      <p style="font-size:10px;color:#6b7d94;margin:8px 0 0;">前端版本：v45</p>
     </div>
   </header>
 
@@ -607,6 +607,17 @@
     document.getElementById('firstBindSection').style.display = 'block';
   }
 
+  // 身分驗證這段偶爾會遇到暫時性的網路延遲/GAS冷啟動，導致單次呼叫失敗或逾時，
+  // 但底層資料其實沒問題——失敗時自動重試一次，中間停頓一下，避免誤判成「還沒綁定」。
+  function callApiWithRetry(action, data, retries) {
+    return callApi(action, data).catch((err) => {
+      if (retries > 0) {
+        return new Promise((resolve) => setTimeout(resolve, 800)).then(() => callApiWithRetry(action, data, retries - 1));
+      }
+      throw err;
+    });
+  }
+
   if (LIFF_ID && LIFF_ID.indexOf('請填入') === -1 && typeof liff !== 'undefined') {
     liff.init({ liffId: LIFF_ID }).then(() => {
       liffReady = true;
@@ -621,7 +632,7 @@
       }
       liff.getProfile().then((profile) => {
         currentLineUserId = profile.userId;
-        callApi('checkLineBinding', { lineUserId: currentLineUserId }).then((res) => {
+        callApiWithRetry('checkLineBinding', { lineUserId: currentLineUserId }, 2).then((res) => {
           if (!res.ok) {
             showLiffBlock('checkLineBinding回應失敗：' + (res.reason || JSON.stringify(res)));
             return;
@@ -635,7 +646,7 @@
           } else {
             showFirstBindFlow();
           }
-        }).catch((err) => { showLiffBlock('呼叫checkLineBinding失敗：' + err.message); });
+        }).catch((err) => { showLiffBlock('呼叫checkLineBinding失敗（已重試2次）：' + err.message); });
       }).catch((err) => { showLiffBlock('liff.getProfile()失敗：' + err.message + '（很可能是LIFF的Scope沒有勾選profile）'); });
     }).catch((err) => {
       showLiffBlock('liff.init()失敗：' + (err && err.message ? err.message : JSON.stringify(err)));
