@@ -163,7 +163,7 @@
       <h2>交通費用申請</h2>
       <p class="sub">選好交通類別後，只會出現該類別需要的欄位；可以用LINE掃發票QR自動帶入部分欄位。</p>
       <p id="liffStatus">檢查 LINE 環境中...</p>
-      <p style="font-size:10px;color:#6b7d94;margin:8px 0 0;">前端版本：v43</p>
+      <p style="font-size:10px;color:#6b7d94;margin:8px 0 0;">前端版本：v44</p>
     </div>
   </header>
 
@@ -1461,7 +1461,7 @@
     // ⚠️ BPM是拿「第一筆私車公用明細」的行程日期當基準，算出允許的發票月份清單，
     // 再檢查「所有」明細的發票日期是否落在這份清單裡——不是逐筆去對照，
     // 這代表所有行程日期必須本來就是同一個月份（下面會另外檢查這件事）。
-    const firstTripDate = all[0].date || all[0].invoiceDate;
+    const firstTripDate = trips.length > 0 ? trips[0].date : null;
     if (firstTripDate) {
       const badInvoices = selfInvoiced.filter((r) => r.invoiceDate && !isMonthAllowed(firstTripDate, r.invoiceDate));
       if (badInvoices.length > 0) {
@@ -1489,8 +1489,10 @@
     if (msg) return { ok: false, reason: msg };
     msg = checkSameMonthAcrossItems_(table3Items, (it) => getYearMonth_(it.date), '公務車油資/停車費/其他費用');
     if (msg) return { ok: false, reason: msg };
-    // 私車公用比較特別：行程日期對一般行程是date，對「上列行程補發票」是invoiceDate
-    msg = checkSameMonthAcrossItems_(table2Items, (it) => getYearMonth_(it.date || it.invoiceDate), '私車公用費用');
+    // 私車公用：「上列行程補發票」在BPM那邊根本沒有行程日期這個概念（必須留空），
+    // 所以月份一致性只檢查真正代表行程的那些列，不含補發票列
+    const realTrips = table2Items.filter((it) => it.vehicle !== T2_PURE_RECEIPT);
+    msg = checkSameMonthAcrossItems_(realTrips, (it) => getYearMonth_(it.date), '私車公用費用（行程日期）');
     if (msg) return { ok: false, reason: msg };
 
     return { ok: true };
