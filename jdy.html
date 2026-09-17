@@ -60,6 +60,8 @@
     button:active { transform:scale(.98); }
     button:hover:not(:disabled) { background:var(--navy-deep); }
     button.danger { background:transparent; color:var(--danger); padding:3px 8px; font-weight:500; }
+    button.secondary { background:#06c755; }
+    button.secondary:hover:not(:disabled) { background:#05a648; }
     button:disabled { opacity:.45; cursor:not-allowed; }
 
     .item-card { border:1px solid var(--border); border-radius:8px; padding:10px 12px; margin-bottom:7px; display:flex; justify-content:space-between; align-items:center; font-size:13px; background:#fdfcfa; cursor:pointer; }
@@ -132,19 +134,48 @@
       <h2>交通費用申請</h2>
       <p class="sub">選好交通類別後，只會出現該類別需要的欄位；每筆明細請選對應的服務專案。</p>
       <p id="liffStatus">檢查 LINE 環境中...</p>
-      <p style="font-size:10px;color:#6b7d94;margin:8px 0 0;">前端版本：v21</p>
+      <p style="font-size:10px;color:#6b7d94;margin:8px 0 0;">前端版本：v22</p>
     </div>
   </header>
 
   <div id="scanToast"></div>
 
   <div class="wrap">
-    <section>
-      <h3><span class="step-no">1</span>工號</h3>
+    <section id="liffLoadingSection">
+      <p style="margin:0;color:var(--ink-soft);font-size:13px;">身分驗證中，請稍候...</p>
+    </section>
+
+    <section id="liffBlockSection" style="display:none;">
+      <p style="margin:0;color:var(--danger);font-size:13.5px;font-weight:600;">⚠️ 請透過LINE官方連結進入本系統</p>
+      <p style="margin:8px 0 0;color:var(--ink-soft);font-size:12.5px;">一般網址已不再開放使用，麻煩改用公告過的LINE連結重新進入。</p>
+      <p id="liffBlockDetail" style="margin:10px 0 0;color:#b8863f;font-size:11px;word-break:break-all;"></p>
+    </section>
+
+    <section id="firstBindSection" style="display:none;">
+      <h3><span class="step-no">1</span>首次使用，請確認您的身分</h3>
+      <p style="font-size:11.5px;color:var(--ink-soft);margin:-6px 0 10px;">這是您第一次使用本系統，請搜尋並選擇您自己的工號。確認後將會跟您這個LINE帳號綁定，之後開啟不用再選，也無法自行更改，如需更正請聯繫管理員。</p>
       <input id="empSearch" type="text" placeholder="輸入工號或姓名搜尋" autocomplete="off">
       <div id="empSuggest"></div>
       <div id="empCard"></div>
+      <button id="confirmBindBtn" style="display:none;margin-top:10px;">確認這是我本人，完成綁定</button>
     </section>
+
+    <section id="boundIdentitySection" style="display:none;">
+      <h3><span class="step-no">1</span>身分</h3>
+      <div id="boundEmpCard" style="font-size:13px;padding:8px 10px;background:var(--bg);border-radius:6px;"></div>
+    </section>
+
+    <div id="mainFormContent" style="display:none;">
+
+    <section>
+      <button id="showOldDocsBtn" class="secondary" style="width:100%;">📋 重新送出舊單（單據被退回時使用）</button>
+      <div id="oldDocsPanel" style="display:none;margin-top:10px;">
+        <p style="font-size:11.5px;color:var(--ink-soft);margin:0 0 8px;">從您過去送過的單裡挑一張，把明細內容載進來修改，送出後會直接更新這張單（單號不會變），不會產生新單。</p>
+        <div id="oldDocsList"></div>
+      </div>
+    </section>
+
+    <div id="resubmitBanner" style="display:none;margin:0 0 14px;padding:10px 14px;background:var(--accent-soft);border-radius:9px;font-size:12.5px;color:var(--ink);"></div>
 
     <section>
       <div style="background:var(--accent-soft);border-radius:12px;padding:14px 16px 16px;margin:-16px -18px 0;">
@@ -332,12 +363,26 @@
           <div><label>申請項目</label>
             <select id="t3_applyItem">
               <option value="">請選擇</option>
-              <option>公務車油資</option><option>停車費</option><option>過路費</option><option>其他</option>
+              <option>公務車油資</option><option>停車費</option><option>停車費-免稅</option><option>ETAG過路費</option>
             </select>
           </div>
           <div><label>發票或憑證日期</label><input id="t3_date" type="date"></div>
-          <div><label>發票號碼(不加-)</label><input id="t3_receiptNo" type="text"></div>
-          <div><label>賣方統一編號</label><input id="t3_sellerVat" type="text"></div>
+        </div>
+        <label>發票格式 <span style="color:var(--danger);">*</span></label>
+        <select id="t3_receiptFormat">
+          <option value="">請選擇</option>
+          <option value="0-無稅額之其他憑證">0-無稅額之其他憑證</option>
+          <option value="不須附憑證-憑證號碼/賣方統編免填">不須附憑證-憑證號碼/賣方統編免填</option>
+          <option value="1-格式21:代表進項三聯式、電子計算機統一發票">1-格式21:進項三聯式、電子計算機統一發票</option>
+          <option value="2-格式25:代表進項三聯式收銀機統一發票">2-格式25:進項三聯式收銀機統一發票</option>
+          <option value="3-格式22,27:代表進項二聯式收銀機統一發票、載有稅額之其他憑證">3-格式22,27:進項二聯式收銀機統一發票、載有稅額之其他憑證</option>
+          <option value="4-格式28:代表進項海關代徵營業稅繳納證">4-格式28:進項海關代徵營業稅繳納證</option>
+          <option value="5-格式22,27:載有稅額之其他憑證-有字軌">5-格式22,27:載有稅額之其他憑證-有字軌</option>
+          <option value="6-格式25:代表一般稅額計算之電子發票-含公用事業">6-格式25:一般稅額計算之電子發票-含公用事業</option>
+        </select>
+        <div class="grid">
+          <div id="t3_receiptNoWrap"><label>發票號碼(不加-，10碼)</label><input id="t3_receiptNo" type="text"></div>
+          <div id="t3_sellerVatWrap"><label>賣方統一編號</label><input id="t3_sellerVat" type="text" placeholder="無統編請填0"></div>
         </div>
         <div id="t3_fuelFields" class="grid" style="display:none;">
           <div><label>油品</label>
@@ -380,6 +425,8 @@
       <button id="submitBtn" disabled>送出到 BPM</button>
       <div id="resultBox" style="display:none;"></div>
     </section>
+
+    </div>
   </div>
 
 <script>
@@ -391,7 +438,7 @@
     return false;
   };
 
-  const GAS_URL = 'https://script.google.com/macros/s/AKfycbznsIOeAci4sX9M4veaases2srjEALVl2vnd4MfRTM8S02t3DLJHTjPGLXiFUAQAwH-JQ/exec';
+  const GAS_URL = 'https://script.google.com/macros/s/AKfycbySyCA9su-wxTbZTWSbxVBBuytruebIC1XSgFppInMQC0AsNYm2OV9QH-I3pk72TLko_w/exec';
   const LIFF_ID = '2010694933-Grf9QtHx';
 
   let currentEmployee = null;
@@ -400,6 +447,7 @@
   let currentCategory = 'main';
   let liffReady = false;
   let editingIndex = null;
+  let resubmitTargetSubjectId = null;
 
   // ── 本地暫存：讓同仁可以分好幾天累積明細，最後月底才一次送出 ──
   // 存在這支手機/瀏覽器裡（localStorage），換裝置或清除瀏覽器資料會遺失，
@@ -409,7 +457,7 @@
 
   function saveDraft() {
     try {
-      localStorage.setItem(DRAFT_KEY, JSON.stringify({ employee: currentEmployee, items: items }));
+      localStorage.setItem(DRAFT_KEY, JSON.stringify({ employee: currentEmployee, items: items, resubmitTargetSubjectId: resubmitTargetSubjectId }));
     } catch (e) {}
   }
 
@@ -430,6 +478,8 @@
       if (ok) {
         items = draft.items;
         currentEmployee = draft.employee;
+        resubmitTargetSubjectId = draft.resubmitTargetSubjectId || null;
+        updateResubmitBanner_();
         if (currentEmployee) {
           document.getElementById('empSearch').value = currentEmployee.id + ' ' + currentEmployee.name;
           document.getElementById('empCard').style.display = 'block';
@@ -517,6 +567,45 @@
     }).then((r) => r.json());
   }
 
+  let currentLineUserId = null;
+
+  function showLiffBlock(reason) {
+    document.getElementById('liffLoadingSection').style.display = 'none';
+    document.getElementById('liffBlockSection').style.display = 'block';
+    if (reason) {
+      const detail = document.getElementById('liffBlockDetail');
+      if (detail) detail.textContent = '（除錯資訊：' + reason + '）';
+    }
+  }
+
+  function unlockMainForm() {
+    document.getElementById('liffLoadingSection').style.display = 'none';
+    document.getElementById('mainFormContent').style.display = 'block';
+  }
+
+  function showBoundIdentity(emp) {
+    currentEmployee = emp;
+    document.getElementById('firstBindSection').style.display = 'none';
+    document.getElementById('boundIdentitySection').style.display = 'block';
+    document.getElementById('boundEmpCard').innerHTML =
+      '<b>' + escapeHtml(emp.name) + '</b>（' + escapeHtml(emp.id) + '）　' + escapeHtml(emp.office) + '　' + escapeHtml(emp.team);
+    unlockMainForm();
+  }
+
+  function showFirstBindFlow() {
+    document.getElementById('liffLoadingSection').style.display = 'none';
+    document.getElementById('firstBindSection').style.display = 'block';
+  }
+
+  function callApiWithRetry(action, data, retries) {
+    return callApi(action, data).catch((err) => {
+      if (retries > 0) {
+        return new Promise((resolve) => setTimeout(resolve, 800)).then(() => callApiWithRetry(action, data, retries - 1));
+      }
+      throw err;
+    });
+  }
+
   if (LIFF_ID && typeof liff !== 'undefined') {
     liff.init({ liffId: LIFF_ID }).then(() => {
       liffReady = true;
@@ -527,11 +616,33 @@
         document.getElementById('t2_scanHint').style.display = 'block';
         document.getElementById('t3_scanHint').style.display = 'block';
       }
-    }).catch(() => {
-      document.getElementById('liffStatus').textContent = '（LIFF初始化失敗，不影響手動填寫功能）';
+      if (!liff.isLoggedIn()) {
+        liff.login();
+        return;
+      }
+      liff.getProfile().then((profile) => {
+        currentLineUserId = profile.userId;
+        callApiWithRetry('checkLineBinding', { lineUserId: currentLineUserId }, 2).then((res) => {
+          if (!res.ok) {
+            showLiffBlock('checkLineBinding回應失敗：' + (res.reason || JSON.stringify(res)));
+            return;
+          }
+          if (res.bound && !res.employeeNotFound) {
+            showBoundIdentity(res.employee);
+          } else if (res.bound && res.employeeNotFound) {
+            document.getElementById('liffBlockSection').innerHTML =
+              '<p style="margin:0;color:var(--danger);font-size:13.5px;font-weight:600;">⚠️ 綁定的工號（' + escapeHtml(res.employeeId) + '）目前查無資料</p><p style="margin:8px 0 0;color:var(--ink-soft);font-size:12.5px;">可能是工號異動或資料調整，請聯繫管理員協助確認。</p><p id="liffBlockDetail" style="margin:10px 0 0;color:#b8863f;font-size:11px;word-break:break-all;"></p>';
+            showLiffBlock();
+          } else {
+            showFirstBindFlow();
+          }
+        }).catch((err) => { showLiffBlock('呼叫checkLineBinding失敗（已重試2次）：' + err.message); });
+      }).catch((err) => { showLiffBlock('liff.getProfile()失敗：' + err.message + '（很可能是LIFF的Scope沒有勾選profile）'); });
+    }).catch((err) => {
+      showLiffBlock('liff.init()失敗：' + (err && err.message ? err.message : JSON.stringify(err)));
     });
   } else {
-    document.getElementById('liffStatus').style.display = 'none';
+    showLiffBlock('LIFF_ID未設定或liff SDK未載入');
   }
 
   function parseInvoiceQr(text) {
@@ -668,10 +779,25 @@
 
   function updateT3Fields() {
     const v = document.getElementById('t3_applyItem').value;
-    document.getElementById('t3_fuelFields').style.display = (v === '公務車油資') ? 'grid' : 'none';
+    const isFuel = v === '公務車油資';
+    document.getElementById('t3_fuelFields').style.display = isFuel ? 'grid' : 'none';
+    if (!isFuel) {
+      document.getElementById('t3_fuelType').value = '';
+      document.getElementById('t3_liters').value = '';
+    }
   }
   document.getElementById('t3_applyItem').addEventListener('change', updateT3Fields);
   updateT3Fields();
+
+  const T3_NO_TAX_FORMAT = '0-無稅額之其他憑證';
+  function updateT3ReceiptFieldsVisibility() {
+    const fmt = document.getElementById('t3_receiptFormat').value;
+    const isNoTax = fmt === T3_NO_TAX_FORMAT;
+    document.getElementById('t3_receiptNoWrap').style.display = isNoTax ? 'none' : 'block';
+    if (isNoTax) document.getElementById('t3_receiptNo').value = '';
+  }
+  document.getElementById('t3_receiptFormat').addEventListener('change', updateT3ReceiptFieldsVisibility);
+  updateT3ReceiptFieldsVisibility();
 
   const empSearch = document.getElementById('empSearch');
   const empSuggest = document.getElementById('empSuggest');
@@ -702,7 +828,29 @@
     empCard.style.display = 'block';
     empCard.innerHTML = '<b>' + escapeHtml(emp.name) + '</b>（' + escapeHtml(emp.id) + '）　' + escapeHtml(emp.office) + '　' + escapeHtml(emp.team);
     saveDraft();
+    const confirmBtn = document.getElementById('confirmBindBtn');
+    if (confirmBtn) confirmBtn.style.display = 'block';
   }
+
+  document.getElementById('confirmBindBtn').addEventListener('click', () => {
+    if (!currentEmployee || !currentLineUserId) return;
+    const btn = document.getElementById('confirmBindBtn');
+    btn.disabled = true;
+    btn.textContent = '綁定中...';
+    callApi('registerLineBinding', { lineUserId: currentLineUserId, employeeId: currentEmployee.id }).then((res) => {
+      if (res.ok) {
+        showBoundIdentity(currentEmployee);
+      } else {
+        btn.disabled = false;
+        btn.textContent = '確認這是我本人，完成綁定';
+        alert(res.reason || '綁定失敗，請稍後再試');
+      }
+    }).catch((err) => {
+      btn.disabled = false;
+      btn.textContent = '確認這是我本人，完成綁定';
+      alert('呼叫失敗：' + err.message);
+    });
+  });
 
   const projSearch = document.getElementById('projSearch');
   const projSuggest = document.getElementById('projSuggest');
@@ -801,7 +949,7 @@
     main: ['m_vehicle', 'm_city', 'm_date', 'm_dist', 'm_pax', 'm_from', 'm_to', 'm_amount', 'm_receiptNo'],
     table1: ['t1_vehicle', 't1_flightNo', 't1_from', 't1_to', 't1_date', 't1_pax', 't1_receiptNo', 't1_sellerVat', 't1_amount'],
     table2: ['t2_vehicle', 't2_receiptFormat', 't2_date', 't2_dist', 't2_pax', 't2_from', 't2_to', 't2_amount', 't2_invDate', 't2_invAmount', 't2_invNo', 't2_invVat'],
-    table3: ['t3_applyItem', 't3_fuelType', 't3_liters', 't3_date', 't3_receiptNo', 't3_sellerVat', 't3_amount'],
+    table3: ['t3_applyItem', 't3_fuelType', 't3_liters', 't3_date', 't3_receiptNo', 't3_sellerVat', 't3_amount', 't3_receiptFormat'],
   };
 
   function resetFormFields(cat) {
@@ -819,7 +967,7 @@
       document.getElementById('t1_toSuggest').innerHTML = '';
     }
     if (cat === 'table2') { document.getElementById('t2_electricCar').checked = false; updateT2Fields(); updateT2Rate(); }
-    if (cat === 'table3') updateT3Fields();
+    if (cat === 'table3') { updateT3Fields(); updateT3ReceiptFieldsVisibility(); }
     document.getElementById('fNote').value = '';
     projSearch.value = '';
     projInfo.style.display = 'none';
@@ -857,15 +1005,31 @@
     let it = null;
 
     if (currentCategory === 'main') {
-      if (!document.getElementById('m_vehicle').value) { alert('請選擇交通工具'); return; }
+      const mVehicle = document.getElementById('m_vehicle').value;
+      if (!mVehicle) { alert('請選擇交通工具'); return; }
       if (!document.getElementById('m_city').value) { alert('請選擇計費縣市'); return; }
       if (!document.getElementById('m_date').value) { alert('請輸入乘車日期'); return; }
       if (num_(document.getElementById('m_pax').value) <= 0) { alert('請輸入乘車人數'); return; }
       const amount = num_(document.getElementById('m_amount').value);
       if (amount <= 0) { alert('請輸入總額'); return; }
+      const mFrom = document.getElementById('m_from').value.trim();
+      const mTo = document.getElementById('m_to').value.trim();
+      const mHasMap = !!uploadedLinks['main-map'];
+      if ((mFrom || mTo || mHasMap) && !(mFrom && mTo && mHasMap)) {
+        if (!mFrom) { alert('出發地址請填寫（若沒有起訖地址，Map截圖也要一併移除）'); return; }
+        if (!mTo) { alert('抵達地址請填寫（若沒有起訖地址，Map截圖也要一併移除）'); return; }
+        if (!mHasMap) { alert('請補上Map截圖（有填起訖地址時，Map截圖也是必填）'); return; }
+      }
+      const mHasReceipt = !!uploadedLinks['main'];
+      if ((mVehicle === '計程車' || mVehicle === '客運-應稅') && !mHasReceipt) {
+        alert('選擇交通工具為【' + mVehicle + '】，需附上支出憑證'); return;
+      }
+      if (mVehicle === '公車-免稅' && mHasReceipt) {
+        alert('選擇交通工具為【公車-免稅】，不需要附上支出憑證'); return;
+      }
       it = Object.assign(common, {
         category: 'main', amount,
-        vehicle: document.getElementById('m_vehicle').value,
+        vehicle: mVehicle,
         city: document.getElementById('m_city').value,
         date: document.getElementById('m_date').value,
         dist: document.getElementById('m_dist').value,
@@ -889,12 +1053,30 @@
       const t1Vehicle = document.getElementById('t1_vehicle').value;
       const t1From = document.getElementById('t1_from').value;
       const t1To = document.getElementById('t1_to').value;
+      const t1SellerVat = document.getElementById('t1_sellerVat').value.trim();
+      const t1FlightNo = document.getElementById('t1_flightNo').value.trim();
+      const t1ReceiptNo = document.getElementById('t1_receiptNo').value.trim();
+      const needFlightNo = ['台鐵', '台鐵悠遊卡', '國內航空', '國外航空'].includes(t1Vehicle);
+      const isMrt = ['台北捷運', '桃園捷運', '台中捷運', '高雄捷運'].includes(t1Vehicle);
       if (!t1Vehicle) { alert('請選擇交通工具'); return; }
       if (!t1From.trim() || !t1To.trim()) { alert('請填寫起站與迄站'); return; }
       if (!document.getElementById('t1_date').value) { alert('請輸入搭乘日期'); return; }
       if (num_(document.getElementById('t1_pax').value) <= 0) { alert('請輸入乘車人數'); return; }
       const amount = num_(document.getElementById('t1_amount').value);
       if (amount <= 0) { alert('請輸入總額'); return; }
+      if (needFlightNo && !t1FlightNo) { alert('選擇【' + t1Vehicle + '】，請填寫航空班次或火車車種'); return; }
+      if (!needFlightNo && t1FlightNo) { alert('選擇【' + t1Vehicle + '】，航空班次或火車車種不需填寫'); return; }
+      if (!isMrt && t1Vehicle !== '台鐵悠遊卡' && !t1SellerVat) {
+        alert('選擇【' + t1Vehicle + '】，賣方統一編號欄位為必填'); return;
+      }
+      if (t1Vehicle === '高鐵' && !uploadedLinks['table1']) { alert('選擇【高鐵】，支出憑證為必填'); return; }
+      if ((t1Vehicle === '高鐵' || t1Vehicle === '台鐵') && !t1ReceiptNo) {
+        alert('交通工具為' + t1Vehicle + '，請填寫票號後六碼'); return;
+      }
+      if (t1ReceiptNo && t1ReceiptNo.includes('-')) { alert('發票號碼請勿輸入「-」'); return; }
+      if (t1ReceiptNo && t1ReceiptNo.length !== 6 && t1ReceiptNo.length !== 10) {
+        alert('發票號碼長度輸入錯誤，若為高鐵/台鐵票請輸入票號後六碼'); return;
+      }
       it = Object.assign(common, {
         category: 'table1', amount,
         vehicle: t1Vehicle,
@@ -976,17 +1158,37 @@
         finalizeItem_(it, uploadTargets);
       }
     } else if (currentCategory === 'table3') {
-      if (!document.getElementById('t3_applyItem').value) { alert('請選擇申請項目'); return; }
+      const t3ApplyItem = document.getElementById('t3_applyItem').value;
+      const t3Format = document.getElementById('t3_receiptFormat').value;
+      const t3ReceiptNo = document.getElementById('t3_receiptNo').value.trim();
+      const t3SellerVat = document.getElementById('t3_sellerVat').value.trim();
+      const t3IsNoTax = t3Format === T3_NO_TAX_FORMAT;
+      if (!t3ApplyItem) { alert('請選擇申請項目'); return; }
       if (!document.getElementById('t3_date').value) { alert('請輸入發票或憑證日期'); return; }
+      if (!t3Format) { alert('請選擇發票格式'); return; }
+      if (t3IsNoTax && t3ReceiptNo) { alert('發票格式選擇「0-無稅額之其他憑證」，發票號碼不需要填寫'); return; }
+      if (!t3IsNoTax && !t3ReceiptNo) { alert('發票格式選擇【' + t3Format + '】，發票號碼欄位需填寫'); return; }
+      if (!t3IsNoTax && !t3SellerVat) { alert('發票格式選擇【' + t3Format + '】，賣方統一編號欄位需填寫，若賣方無統編請輸入0'); return; }
+      if (t3ReceiptNo && t3ReceiptNo.includes('-')) { alert('發票號碼請勿輸入「-」'); return; }
+      if (t3ReceiptNo && t3ReceiptNo.length !== 10) { alert('發票號碼長度應為10碼'); return; }
+      if (t3ApplyItem === '公務車油資') {
+        if (!document.getElementById('t3_fuelType').value) { alert('選擇申請項目【公務車油資】，請填寫油品'); return; }
+        if (!document.getElementById('t3_liters').value) { alert('選擇申請項目【公務車油資】，請填寫加油公升數'); return; }
+      } else {
+        if (document.getElementById('t3_fuelType').value || document.getElementById('t3_liters').value) {
+          alert('選擇申請項目【' + t3ApplyItem + '】，油品/加油公升數欄位不可填'); return;
+        }
+      }
       if (!uploadedLinks['table3']) { alert('請上傳支出憑證照片'); return; }
       const amount = num_(document.getElementById('t3_amount').value);
       if (amount <= 0) { alert('請輸入總額'); return; }
       it = Object.assign(common, {
         category: 'table3', amount,
-        applyItem: document.getElementById('t3_applyItem').value,
+        applyItem: t3ApplyItem,
         fuelType: document.getElementById('t3_fuelType').value,
         liters: document.getElementById('t3_liters').value,
         date: document.getElementById('t3_date').value,
+        receiptFormat: t3Format,
         receiptNo: document.getElementById('t3_receiptNo').value,
         sellerVat: document.getElementById('t3_sellerVat').value,
         receiptLink: uploadedLinks['table3'] || null,
@@ -1100,6 +1302,8 @@
       document.getElementById('t3_fuelType').value = it.fuelType || '';
       document.getElementById('t3_liters').value = it.liters || '';
       document.getElementById('t3_date').value = it.date || '';
+      document.getElementById('t3_receiptFormat').value = it.receiptFormat || '';
+      updateT3ReceiptFieldsVisibility();
       document.getElementById('t3_receiptNo').value = it.receiptNo || '';
       document.getElementById('t3_sellerVat').value = it.sellerVat || '';
       document.getElementById('t3_amount').value = it.amount || '';
@@ -1121,13 +1325,56 @@
     document.getElementById('addItemBtn').scrollIntoView({ behavior: 'smooth', block: 'center' });
   }
 
+  // ⚠️ 完全比照BPM中介程式的月份清單邏輯：1月只能拿前一年12月+當月+2、3月；
+  // 2月只能拿1、3、4月；11月只能拿9、10、12月；12月只能拿10、11月；
+  // 其餘月份是前後2個月（含當月，共5個月）。
+  function getAllowedInvoiceMonths_(tripDateStr) {
+    const t = new Date(tripDateStr);
+    const y = t.getFullYear(), m = t.getMonth() + 1;
+    const key = (yy, mm) => yy * 100 + mm;
+    const list = [key(y, m)];
+    if (m === 1) {
+      list.push(key(y - 1, 12), key(y, 2), key(y, 3));
+    } else if (m === 2) {
+      list.push(key(y, 1), key(y, 3), key(y, 4));
+    } else if (m === 11) {
+      list.push(key(y, 9), key(y, 10), key(y, 12));
+    } else if (m === 12) {
+      list.push(key(y, 10), key(y, 11));
+    } else {
+      list.push(key(y, m - 2), key(y, m - 1), key(y, m + 1), key(y, m + 2));
+    }
+    return list;
+  }
+
   function isMonthAllowed(tripDateStr, invoiceDateStr) {
     if (!tripDateStr || !invoiceDateStr) return false;
-    const t = new Date(tripDateStr), inv = new Date(invoiceDateStr);
-    if (t.getFullYear() !== inv.getFullYear()) return false;
-    const tm = t.getMonth() + 1, im = inv.getMonth() + 1;
-    const lo = Math.max(1, tm - 2), hi = Math.min(12, tm + 2);
-    return im >= lo && im <= hi;
+    const inv = new Date(invoiceDateStr);
+    const invKey = inv.getFullYear() * 100 + (inv.getMonth() + 1);
+    return getAllowedInvoiceMonths_(tripDateStr).includes(invKey);
+  }
+
+  function formatAllowedMonths_(tripDateStr) {
+    return getAllowedInvoiceMonths_(tripDateStr)
+      .slice().sort((a, b) => a - b)
+      .map((k) => Math.floor(k / 100) + '年' + (k % 100) + '月')
+      .join('、');
+  }
+
+  function getYearMonth_(dateStr) {
+    if (!dateStr) return null;
+    const d = new Date(dateStr);
+    if (isNaN(d.getTime())) return null;
+    return d.getFullYear() * 100 + (d.getMonth() + 1);
+  }
+
+  function checkSameMonthAcrossItems_(itemsArr, dateFieldFn, categoryLabel) {
+    const months = itemsArr.map(dateFieldFn).filter((m) => m !== null);
+    const uniqueMonths = [...new Set(months)];
+    if (uniqueMonths.length > 1) {
+      return categoryLabel + '：明細裡的日期橫跨不同月份，請拆單分開申請（同一張單裡，同一類別的所有明細必須是同一個月份）';
+    }
+    return null;
   }
 
   function validateTable2() {
@@ -1150,21 +1397,115 @@
       };
     }
 
-    const merged = trips.filter((it) => !it.receiptFormat || it.receiptFormat === T2_MERGE_OPTION);
-    const badTrips = merged.filter((trip) => !selfInvoiced.some((r) => isMonthAllowed(trip.date, r.invoiceDate)));
-    if (badTrips.length > 0) {
-      const list = badTrips.map((t) => t.date + '（' + t.vehicle + '）').join('、');
-      return {
-        ok: false,
-        reason: '私車公用：以下行程找不到月份符合規則的發票（行程月份前後2個月內、不跨年）：' + list +
-          '，請刪除這幾趟行程，或補上該月份範圍內的發票。',
-      };
+    // ⚠️ BPM是拿「第一筆真正的行程」的行程日期當基準，「上列行程補發票」在BPM那邊
+    // 根本沒有行程日期這個概念（必須留空），不能拿發票日期頂替
+    const firstTripDate = trips.length > 0 ? trips[0].date : null;
+    if (firstTripDate) {
+      const badInvoices = selfInvoiced.filter((r) => r.invoiceDate && !isMonthAllowed(firstTripDate, r.invoiceDate));
+      if (badInvoices.length > 0) {
+        const allowedStr = formatAllowedMonths_(firstTripDate);
+        const badList = badInvoices.map((r) => r.invoiceDate).join('、');
+        return {
+          ok: false,
+          reason: '私車公用：發票日期【' + badList + '】不符合申請發票月份，只能拿' + allowedStr + '月份發票。',
+        };
+      }
     }
     return { ok: true };
   }
 
+  function validateSameMonthAcrossCategories() {
+    const mainItems = items.filter((it) => it.category === 'main');
+    const table1Items = items.filter((it) => it.category === 'table1');
+    const table2Items = items.filter((it) => it.category === 'table2');
+    const table3Items = items.filter((it) => it.category === 'table3');
+
+    let msg = checkSameMonthAcrossItems_(mainItems, (it) => getYearMonth_(it.date), '計程車/公車/客運費用');
+    if (msg) return { ok: false, reason: msg };
+    msg = checkSameMonthAcrossItems_(table1Items, (it) => getYearMonth_(it.date), '航空/高鐵/台鐵/捷運費用');
+    if (msg) return { ok: false, reason: msg };
+    msg = checkSameMonthAcrossItems_(table3Items, (it) => getYearMonth_(it.date), '公務車油資/停車費/其他費用');
+    if (msg) return { ok: false, reason: msg };
+    const realTrips = table2Items.filter((it) => it.vehicle !== T2_PURE_RECEIPT);
+    msg = checkSameMonthAcrossItems_(realTrips, (it) => getYearMonth_(it.date), '私車公用費用（行程日期）');
+    if (msg) return { ok: false, reason: msg };
+
+    return { ok: true };
+  }
+
+  // ── 重新送出舊單：挑一張過去送過的單，把明細內容載進來繼續編輯 ──
+
+  function updateResubmitBanner_() {
+    const banner = document.getElementById('resubmitBanner');
+    if (resubmitTargetSubjectId) {
+      banner.style.display = 'block';
+      banner.innerHTML = '📝 正在編輯單號 <b>' + escapeHtml(resubmitTargetSubjectId) + '</b>，送出後會直接更新這張單（單號不會變），不會產生新單 　' +
+        '<button id="cancelResubmitBtn" class="danger" style="padding:2px 8px;">取消，改建立新單</button>';
+      document.getElementById('cancelResubmitBtn').addEventListener('click', () => {
+        if (!confirm('取消後，目前載入的明細會被清空，確定要取消嗎？')) return;
+        resubmitTargetSubjectId = null;
+        items = [];
+        renderItems();
+        updateResubmitBanner_();
+      });
+    } else {
+      banner.style.display = 'none';
+      banner.innerHTML = '';
+    }
+  }
+
+  document.getElementById('showOldDocsBtn').addEventListener('click', () => {
+    const panel = document.getElementById('oldDocsPanel');
+    const list = document.getElementById('oldDocsList');
+    const showing = panel.style.display !== 'none';
+    if (showing) { panel.style.display = 'none'; return; }
+    panel.style.display = 'block';
+    list.innerHTML = '<p style="font-size:12.5px;color:var(--ink-soft);">查詢中...</p>';
+    callApi('queryMyDocuments', { employeeId: currentEmployee.id }).then((res) => {
+      if (!res.ok) { list.innerHTML = '<p style="color:#c00;font-size:12.5px;">查詢失敗：' + escapeHtml(res.reason) + '</p>'; return; }
+      if (!res.documents || res.documents.length === 0) {
+        list.innerHTML = '<p style="font-size:12.5px;color:var(--ink-soft);">查無過去送出的紀錄</p>';
+        return;
+      }
+      list.innerHTML = res.documents.map((d, i) => {
+        const disabled = d.canResubmit ? '' : 'disabled style="opacity:.5;"';
+        const hint = d.canResubmit ? '' : '<span class="pill">舊資料無法使用</span>';
+        return '<div class="item-card" style="cursor:default;"><div>' + escapeHtml(d.subjectId) + hint +
+          '<div style="font-size:11px;color:var(--ink-soft);">' + escapeHtml(d.submitTime) + '　總額 NT$' + d.total + '</div></div>' +
+          '<button data-i="' + i + '" ' + disabled + '>使用這張的內容</button></div>';
+      }).join('');
+      list.querySelectorAll('button[data-i]').forEach((btn, i) => {
+        btn.addEventListener('click', () => loadOldDocument_(res.documents[i].subjectId));
+      });
+    }).catch((err) => {
+      list.innerHTML = '<p style="color:#c00;font-size:12.5px;">呼叫失敗：' + escapeHtml(err.message) + '</p>';
+    });
+  });
+
+  function loadOldDocument_(subjectId) {
+    if (items.length > 0 && !confirm('載入這張舊單的內容，會清空目前已經加的 ' + items.length + ' 筆明細（因為送出後是要「更新」這張舊單，不能混雜其他單據的內容），確定要繼續嗎？')) return;
+    callApi('getMyDocumentItems', { employeeId: currentEmployee.id, subjectId: subjectId }).then((res) => {
+      if (!res.ok) { alert(res.reason || '載入失敗'); return; }
+      items = res.items || [];
+      resubmitTargetSubjectId = subjectId;
+      document.getElementById('oldDocsPanel').style.display = 'none';
+      renderItems();
+      updateResubmitBanner_();
+      showToast('✅ 已載入 ' + items.length + ' 筆舊明細，修改後送出會直接更新這張單', 'ok');
+    }).catch((err) => { alert('呼叫失敗：' + err.message); });
+  }
+
   submitBtn.addEventListener('click', () => {
     if (!currentEmployee) { alert('請先選擇工號'); return; }
+
+    const monthCheck = validateSameMonthAcrossCategories();
+    if (!monthCheck.ok) {
+      const box = document.getElementById('resultBox');
+      box.style.display = 'block';
+      box.className = 'err-box';
+      box.textContent = monthCheck.reason;
+      return;
+    }
 
     const check = validateTable2();
     if (!check.ok) {
@@ -1177,17 +1518,22 @@
 
     submitBtn.disabled = true;
     submitBtn.textContent = '送出中...';
-    callApi('submitFare', { formInput: { employee: currentEmployee, items: items } }).then((res) => {
+    const submitPayload = { employee: currentEmployee, items: items };
+    if (resubmitTargetSubjectId) submitPayload.resubmitSubjectId = resubmitTargetSubjectId;
+    callApi('submitFare', { formInput: submitPayload }).then((res) => {
       submitBtn.textContent = '送出到 BPM';
       const box = document.getElementById('resultBox');
       box.style.display = 'block';
       if (res.ok) {
         box.className = 'ok-box';
-        box.innerHTML = '建單成功，單號：' + escapeHtml(res.subjectId) + '　總額 NT$ ' + res.total.toLocaleString() +
+        const actionLabel = res.resubmitted ? '單據更新成功' : '建單成功';
+        box.innerHTML = actionLabel + '，單號：' + escapeHtml(res.subjectId) + '　總額 NT$ ' + res.total.toLocaleString() +
           '　<span style="opacity:.6;">(後端版本:' + escapeHtml(res.apiVersion) + ')</span>' +
           '<details><summary>查看送出的 JSON / BPM 原始回應</summary><pre>' +
           escapeHtml(JSON.stringify({ sentJson: res.sentJson, raw: res.raw }, null, 2)) + '</pre></details>';
         items = [];
+        resubmitTargetSubjectId = null;
+        updateResubmitBanner_();
         if (editingIndex !== null) { endEditMode(); resetFormFields(currentCategory); }
         renderItems();
       } else {
