@@ -134,7 +134,7 @@
       <h2>交通費用申請</h2>
       <p class="sub">選好交通類別後，只會出現該類別需要的欄位；每筆明細請選對應的服務專案。</p>
       <p id="liffStatus">檢查 LINE 環境中...</p>
-      <p style="font-size:10px;color:#6b7d94;margin:8px 0 0;">前端版本：v23</p>
+      <p style="font-size:10px;color:#6b7d94;margin:8px 0 0;">前端版本：v24</p>
     </div>
   </header>
 
@@ -166,16 +166,6 @@
     </section>
 
     <div id="mainFormContent" style="display:none;">
-
-    <section>
-      <button id="showOldDocsBtn" class="secondary" style="width:100%;">📋 重新送出舊單（單據被退回時使用）</button>
-      <div id="oldDocsPanel" style="display:none;margin-top:10px;">
-        <p style="font-size:11.5px;color:var(--ink-soft);margin:0 0 8px;">從您過去送過的單裡挑一張，把明細內容載進來修改，送出後會直接更新這張單（單號不會變），不會產生新單。</p>
-        <div id="oldDocsList"></div>
-      </div>
-    </section>
-
-    <div id="resubmitBanner" style="display:none;margin:0 0 14px;padding:10px 14px;background:var(--accent-soft);border-radius:9px;font-size:12.5px;color:var(--ink);"></div>
 
     <section>
       <div style="background:var(--accent-soft);border-radius:12px;padding:14px 16px 16px;margin:-16px -18px 0;">
@@ -447,7 +437,6 @@
   let currentCategory = 'main';
   let liffReady = false;
   let editingIndex = null;
-  let resubmitTargetSubjectId = null;
 
   // ── 本地暫存：讓同仁可以分好幾天累積明細，最後月底才一次送出 ──
   // 存在這支手機/瀏覽器裡（localStorage），換裝置或清除瀏覽器資料會遺失，
@@ -457,7 +446,7 @@
 
   function saveDraft() {
     try {
-      localStorage.setItem(DRAFT_KEY, JSON.stringify({ employee: currentEmployee, items: items, resubmitTargetSubjectId: resubmitTargetSubjectId }));
+      localStorage.setItem(DRAFT_KEY, JSON.stringify({ employee: currentEmployee, items: items }));
     } catch (e) {}
   }
 
@@ -478,8 +467,6 @@
       if (ok) {
         items = draft.items;
         currentEmployee = draft.employee;
-        resubmitTargetSubjectId = draft.resubmitTargetSubjectId || null;
-        updateResubmitBanner_();
         if (currentEmployee) {
           document.getElementById('empSearch').value = currentEmployee.id + ' ' + currentEmployee.name;
           document.getElementById('empCard').style.display = 'block';
@@ -1433,68 +1420,6 @@
     return { ok: true };
   }
 
-  // ── 重新送出舊單：挑一張過去送過的單，把明細內容載進來繼續編輯 ──
-
-  function updateResubmitBanner_() {
-    const banner = document.getElementById('resubmitBanner');
-    if (resubmitTargetSubjectId) {
-      banner.style.display = 'block';
-      banner.innerHTML = '📝 正在編輯單號 <b>' + escapeHtml(resubmitTargetSubjectId) + '</b>，送出後會直接更新這張單（單號不會變），不會產生新單 　' +
-        '<button id="cancelResubmitBtn" class="danger" style="padding:2px 8px;">取消，改建立新單</button>';
-      document.getElementById('cancelResubmitBtn').addEventListener('click', () => {
-        if (!confirm('取消後，目前載入的明細會被清空，確定要取消嗎？')) return;
-        resubmitTargetSubjectId = null;
-        items = [];
-        renderItems();
-        updateResubmitBanner_();
-      });
-    } else {
-      banner.style.display = 'none';
-      banner.innerHTML = '';
-    }
-  }
-
-  document.getElementById('showOldDocsBtn').addEventListener('click', () => {
-    const panel = document.getElementById('oldDocsPanel');
-    const list = document.getElementById('oldDocsList');
-    const showing = panel.style.display !== 'none';
-    if (showing) { panel.style.display = 'none'; return; }
-    panel.style.display = 'block';
-    list.innerHTML = '<p style="font-size:12.5px;color:var(--ink-soft);">查詢中...</p>';
-    callApi('queryMyDocuments', { employeeId: currentEmployee.id }).then((res) => {
-      if (!res.ok) { list.innerHTML = '<p style="color:#c00;font-size:12.5px;">查詢失敗：' + escapeHtml(res.reason) + '</p>'; return; }
-      if (!res.documents || res.documents.length === 0) {
-        list.innerHTML = '<p style="font-size:12.5px;color:var(--ink-soft);">查無過去送出的紀錄</p>';
-        return;
-      }
-      list.innerHTML = res.documents.map((d, i) => {
-        const disabled = d.canResubmit ? '' : 'disabled style="opacity:.5;"';
-        const hint = d.canResubmit ? '' : '<span class="pill">舊資料無法使用</span>';
-        return '<div class="item-card" style="cursor:default;"><div>' + escapeHtml(d.subjectId) + hint +
-          '<div style="font-size:11px;color:var(--ink-soft);">' + escapeHtml(d.submitTime) + '　總額 NT$' + d.total + '</div></div>' +
-          '<button data-i="' + i + '" ' + disabled + '>使用這張的內容</button></div>';
-      }).join('');
-      list.querySelectorAll('button[data-i]').forEach((btn, i) => {
-        btn.addEventListener('click', () => loadOldDocument_(res.documents[i].subjectId));
-      });
-    }).catch((err) => {
-      list.innerHTML = '<p style="color:#c00;font-size:12.5px;">呼叫失敗：' + escapeHtml(err.message) + '</p>';
-    });
-  });
-
-  function loadOldDocument_(subjectId) {
-    if (items.length > 0 && !confirm('載入這張舊單的內容，會清空目前已經加的 ' + items.length + ' 筆明細（因為送出後是要「更新」這張舊單，不能混雜其他單據的內容），確定要繼續嗎？')) return;
-    callApi('getMyDocumentItems', { employeeId: currentEmployee.id, subjectId: subjectId }).then((res) => {
-      if (!res.ok) { alert(res.reason || '載入失敗'); return; }
-      items = res.items || [];
-      resubmitTargetSubjectId = subjectId;
-      document.getElementById('oldDocsPanel').style.display = 'none';
-      renderItems();
-      updateResubmitBanner_();
-      showToast('✅ 已載入 ' + items.length + ' 筆舊明細，修改後送出會直接更新這張單', 'ok');
-    }).catch((err) => { alert('呼叫失敗：' + err.message); });
-  }
-
   submitBtn.addEventListener('click', () => {
     if (!currentEmployee) { alert('請先選擇工號'); return; }
 
@@ -1518,22 +1443,17 @@
 
     submitBtn.disabled = true;
     submitBtn.textContent = '送出中...';
-    const submitPayload = { employee: currentEmployee, items: items };
-    if (resubmitTargetSubjectId) submitPayload.resubmitSubjectId = resubmitTargetSubjectId;
-    callApi('submitFare', { formInput: submitPayload }).then((res) => {
+    callApi('submitFare', { formInput: { employee: currentEmployee, items: items } }).then((res) => {
       submitBtn.textContent = '送出到 BPM';
       const box = document.getElementById('resultBox');
       box.style.display = 'block';
       if (res.ok) {
         box.className = 'ok-box';
-        const actionLabel = res.resubmitted ? '單據更新成功' : '建單成功';
-        box.innerHTML = actionLabel + '，單號：' + escapeHtml(res.subjectId) + '　總額 NT$ ' + res.total.toLocaleString() +
+        box.innerHTML = '建單成功，單號：' + escapeHtml(res.subjectId) + '　總額 NT$ ' + res.total.toLocaleString() +
           '　<span style="opacity:.6;">(後端版本:' + escapeHtml(res.apiVersion) + ')</span>' +
           '<details><summary>查看送出的 JSON / BPM 原始回應</summary><pre>' +
           escapeHtml(JSON.stringify({ sentJson: res.sentJson, raw: res.raw }, null, 2)) + '</pre></details>';
         items = [];
-        resubmitTargetSubjectId = null;
-        updateResubmitBanner_();
         if (editingIndex !== null) { endEditMode(); resetFormFields(currentCategory); }
         renderItems();
       } else {
