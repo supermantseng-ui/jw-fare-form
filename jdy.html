@@ -134,7 +134,7 @@
       <h2>交通費用申請</h2>
       <p class="sub">選好交通類別後，只會出現該類別需要的欄位；每筆明細請選對應的服務專案。</p>
       <p id="liffStatus">檢查 LINE 環境中...</p>
-      <p style="font-size:10px;color:#6b7d94;margin:8px 0 0;">前端版本：v24</p>
+      <p style="font-size:10px;color:#6b7d94;margin:8px 0 0;">前端版本：v25</p>
     </div>
   </header>
 
@@ -893,9 +893,43 @@
       callApi('uploadFile', { base64Data: b64, filename: file.name, mimeType: file.type }).then((res) => {
         if (!res.ok) { box.innerHTML = '<span style="color:#c00;">上傳失敗：' + escapeHtml(res.reason) + '</span>'; return; }
         uploadedLinks[target] = res.url;
-        box.innerHTML = (isMap ? '' : '<img style="width:44px;height:44px;object-fit:cover;border-radius:6px;border:1px solid var(--border);vertical-align:middle;" src="' + dataUrl + '"> ') + '<span class="link-pill">連結已產生</span>';
+        box.innerHTML = (isMap ? '' : '<img style="width:44px;height:44px;object-fit:cover;border-radius:6px;border:1px solid var(--border);vertical-align:middle;" src="' + dataUrl + '"> ') +
+          '<span class="link-pill">連結已產生</span> ' +
+          '<button type="button" class="danger" data-remove-target="' + target + '" style="padding:2px 8px;border:1px solid var(--danger);">🗑 刪除重傳</button>';
+        box.querySelector('button[data-remove-target]').addEventListener('click', () => removeUpload_(target));
       }).catch((err) => { box.innerHTML = '<span style="color:#c00;">上傳失敗：' + escapeHtml(err.message) + '</span>'; });
     });
+  }
+
+  // 刪除某個上傳槽位（支出憑證或Map截圖）目前的連結，並重置對應的檔案輸入框，
+  // 讓使用者可以重新拍照或重新選擇正確的照片
+  function removeUpload_(target) {
+    delete uploadedLinks[target];
+    const isMap = target.endsWith('-map');
+    const baseTarget = target.replace('-map', '');
+    const previewSelector = (isMap ? '.mapPreview' : '.receiptPreview') + '[data-for="' + baseTarget + '"]';
+    const box = document.querySelector(previewSelector);
+    if (box) box.innerHTML = '';
+    document.querySelectorAll('input[type=file][data-target="' + target + '"]').forEach((el) => {
+      const fresh = el.cloneNode(true);
+      fresh.value = '';
+      el.parentNode.replaceChild(fresh, el);
+      fresh.addEventListener('change', handleFileInputChange);
+    });
+  }
+
+  // 編輯明細時，把已經存在的上傳連結重新畫出預覽（含刪除按鈕）
+  function renderExistingUploadPreview_(target, existingLink) {
+    if (!existingLink) return;
+    const isMap = target.endsWith('-map');
+    const baseTarget = target.replace('-map', '');
+    const previewSelector = (isMap ? '.mapPreview' : '.receiptPreview') + '[data-for="' + baseTarget + '"]';
+    const box = document.querySelector(previewSelector);
+    if (!box) return;
+    box.innerHTML = (isMap ? '' : '<img style="width:44px;height:44px;object-fit:cover;border-radius:6px;border:1px solid var(--border);vertical-align:middle;" src="' + escapeHtml(existingLink) + '"> ') +
+      '<span class="link-pill">已有上傳的連結</span> ' +
+      '<button type="button" class="danger" data-remove-target="' + target + '" style="padding:2px 8px;border:1px solid var(--danger);">🗑 刪除重傳</button>';
+    box.querySelector('button[data-remove-target]').addEventListener('click', () => removeUpload_(target));
   }
 
   document.querySelectorAll('input[type=file]').forEach((input) => {
@@ -1253,8 +1287,8 @@
       document.getElementById('m_amount').value = it.amount || '';
       document.getElementById('m_electricCar').checked = !!it.electricCar;
       document.getElementById('m_receiptNo').value = it.receiptNo || '';
-      if (it.receiptLink) uploadedLinks['main'] = it.receiptLink;
-      if (it.mapLink) uploadedLinks['main-map'] = it.mapLink;
+      if (it.receiptLink) { uploadedLinks['main'] = it.receiptLink; renderExistingUploadPreview_('main', it.receiptLink); }
+      if (it.mapLink) { uploadedLinks['main-map'] = it.mapLink; renderExistingUploadPreview_('main-map', it.mapLink); }
     } else if (it.category === 'table1') {
       document.getElementById('t1_vehicle').value = it.vehicle || '';
       updateT1VehicleMeta();
@@ -1265,7 +1299,7 @@
       document.getElementById('t1_pax').value = it.pax || 1;
       document.getElementById('t1_receiptNo').value = it.receiptNo || '';
       document.getElementById('t1_amount').value = it.amount || '';
-      if (it.receiptLink) uploadedLinks['table1'] = it.receiptLink;
+      if (it.receiptLink) { uploadedLinks['table1'] = it.receiptLink; renderExistingUploadPreview_('table1', it.receiptLink); }
     } else if (it.category === 'table2') {
       document.getElementById('t2_vehicle').value = it.vehicle || '';
       document.getElementById('t2_receiptFormat').value = it.receiptFormat || T2_MERGE_OPTION;
@@ -1281,8 +1315,8 @@
       document.getElementById('t2_invAmount').value = it.invoiceAmount || '';
       document.getElementById('t2_invNo').value = it.invoiceNo || '';
       document.getElementById('t2_invVat').value = it.invoiceVat || '';
-      if (it.mapLink) uploadedLinks['table2-map'] = it.mapLink;
-      if (it.receiptLink) uploadedLinks['table2'] = it.receiptLink;
+      if (it.mapLink) { uploadedLinks['table2-map'] = it.mapLink; renderExistingUploadPreview_('table2-map', it.mapLink); }
+      if (it.receiptLink) { uploadedLinks['table2'] = it.receiptLink; renderExistingUploadPreview_('table2', it.receiptLink); }
     } else if (it.category === 'table3') {
       document.getElementById('t3_applyItem').value = it.applyItem || '';
       updateT3Fields();
@@ -1294,7 +1328,7 @@
       document.getElementById('t3_receiptNo').value = it.receiptNo || '';
       document.getElementById('t3_sellerVat').value = it.sellerVat || '';
       document.getElementById('t3_amount').value = it.amount || '';
-      if (it.receiptLink) uploadedLinks['table3'] = it.receiptLink;
+      if (it.receiptLink) { uploadedLinks['table3'] = it.receiptLink; renderExistingUploadPreview_('table3', it.receiptLink); }
     }
     document.getElementById('fNote').value = it.note || '';
     document.getElementById('costType').value = it.costType || '';
