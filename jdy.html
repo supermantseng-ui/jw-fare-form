@@ -134,7 +134,7 @@
       <h2>交通費用申請</h2>
       <p class="sub">選好交通類別後，只會出現該類別需要的欄位；每筆明細請選對應的服務專案。</p>
       <p id="liffStatus">檢查 LINE 環境中...</p>
-      <p style="font-size:10px;color:#6b7d94;margin:8px 0 0;">前端版本：v25</p>
+      <p style="font-size:10px;color:#6b7d94;margin:8px 0 0;">前端版本：v27</p>
     </div>
   </header>
 
@@ -291,7 +291,7 @@
           <div class="grid">
             <div><label>行程日期</label><input id="t2_date" type="date"></div>
             <div><label>里程數(公里)</label><input id="t2_dist" type="number"></div>
-            <div><label>乘車人數</label><input id="t2_pax" type="number" value="1"></div>
+            <div><label>乘車人數</label><input id="t2_pax" type="number"></div>
           </div>
           <p id="t2_rateHint" style="font-size:12px;color:var(--accent);background:var(--accent-soft);padding:8px 10px;border-radius:7px;margin:0 0 10px;"></p>
           <label>總額（依補助標準自動算出，可調整）</label>
@@ -973,11 +973,15 @@
     table3: ['t3_applyItem', 't3_fuelType', 't3_liters', 't3_date', 't3_receiptNo', 't3_sellerVat', 't3_amount', 't3_receiptFormat'],
   };
 
+  const PAX_FIELD_IDS = ['m_pax', 't1_pax']; // 這幾個「乘車人數」欄位，重置時要回到預設值1，不是清空。
+  // ⚠️ 私車公用(t2_pax)刻意不放進來，因為可能多人共乘，不該預設帶1，避免同仁忘記改
+
   function resetFormFields(cat) {
     (CATEGORY_FIELD_IDS[cat] || []).forEach((id) => {
       const el = document.getElementById(id);
       if (!el) return;
       if (el.tagName === 'SELECT') el.selectedIndex = 0;
+      else if (PAX_FIELD_IDS.includes(id)) el.value = '1';
       else el.value = '';
     });
     if (cat === 'main') { document.getElementById('m_electricCar').checked = false; document.getElementById('m_roundTrip').checked = false; updateMRoundTripVisibility(); }
