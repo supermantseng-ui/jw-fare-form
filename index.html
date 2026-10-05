@@ -163,7 +163,7 @@
       <h2>交通費用申請</h2>
       <p class="sub">選好交通類別後，只會出現該類別需要的欄位；可以用LINE掃發票QR自動帶入部分欄位。</p>
       <p id="liffStatus">檢查 LINE 環境中...</p>
-      <p style="font-size:10px;color:#6b7d94;margin:8px 0 0;">前端版本：v53</p>
+      <p style="font-size:10px;color:#6b7d94;margin:8px 0 0;">前端版本：v56</p>
     </div>
   </header>
 
@@ -412,8 +412,12 @@
       <div><label>金額</label><input id="fAmount" type="number" style="font-size:16px;font-weight:600;"></div>
     </div>
 
-    <label style="margin-top:8px;">備註</label>
-    <input id="fNote" type="text">
+    <div class="station-field">
+      <label style="margin-top:8px;">備註</label>
+      <input id="fNote" type="text" autocomplete="off">
+      <div id="fNoteSuggest" class="station-dropdown"></div>
+    </div>
+    <div id="noteMemoryBanner" style="display:none;margin:0 0 10px;padding:9px 12px;background:var(--accent-soft);border-radius:8px;font-size:12.5px;line-height:2;color:var(--ink);"></div>
 
     <button id="addItemBtn">加入這筆明細</button>
     <button id="cancelEditBtn" class="danger" style="display:none;border:1px solid var(--danger);margin-top:6px;width:100%;">取消編輯</button>
@@ -721,6 +725,7 @@
     document.querySelectorAll('.cat-group').forEach((g) => g.classList.toggle('active', g.dataset.group === cat));
     currentCategory = cat;
     document.getElementById('commonAmountWrap').style.display = (cat === 'table2') ? 'none' : 'grid';
+    updateNoteMemoryBanner_();
   }
   document.querySelectorAll('.cat-tab').forEach((tab) => {
     tab.addEventListener('click', () => switchToCategory(tab.dataset.cat));
@@ -789,6 +794,232 @@
     }).catch(() => setFareHint_('')); // 查不到/網路問題就靜默略過，不影響手動輸入
   }
 
+  // ══════════ 備註記憶：用「交通工具＋備註（客戶代號）」記住上次那一筆，自動/一鍵帶入 ══════════
+  // 事務所沒有客戶欄位，同仁習慣把客戶代號寫在備註。這裡記住「這位同仁、這個交通工具、這個備註，
+  // 最後一次加入的明細」，存在這支手機裡（localStorage），以同仁工號分開存。
+  // 同一個客戶搭捷運、騎機車各記一筆，互不覆蓋。
+  // ⚠️ 刻意不記：日期、支出憑證照片、憑證號碼、發票資料（每次都不一樣，要同仁自己補）。
+  //    Google路線截圖例外（私人汽車/機車、計程車/公車）：路線相同可以共用，所以會一併帶入。
+  const NOTE_MEMORY_MAX = 50; // 最多記幾筆，超過就淘汰最舊的
+  let noteAutoApplyAt = 0;    // 最近一次「自動帶入」的時間，用來擋掉緊接著的誤觸「加入」
+
+  function noteKey_(s) {
+    // NFKC 會把全形英數轉半形，再統一大小寫、壓縮空白，同仁打「ＡＢＣ」「abc」「ABC 」都算同一個
+    return String(s == null ? '' : s).normalize('NFKC').trim().replace(/\s+/g, ' ').toLowerCase();
+  }
+  function noteMemoryStorageKey_() {
+    return 'jw_note_memory_v2_' + (currentEmployee ? currentEmployee.id : 'anon');
+  }
+  function loadNoteMemory_() {
+    try { return JSON.parse(localStorage.getItem(noteMemoryStorageKey_())) || {}; } catch (e) { return {}; }
+  }
+  function saveNoteMemory_(mem) {
+    try { localStorage.setItem(noteMemoryStorageKey_(), JSON.stringify(mem)); } catch (e) { /* 無痕模式存不了就算了，不影響填單 */ }
+  }
+  function vehicleOfItem_(it) { return it.category === 'table3' ? (it.applyItem || '') : (it.vehicle || ''); }
+  function memKey_(note, vehicle) { return noteKey_(note) + '||' + String(vehicle || '').trim(); }
+
+  // 各類別要記住哪些欄位（白名單，沒列到的一律不記）
+  const NOTE_SNAP_FIELDS = {
+    main:   ['vehicle', 'city', 'dist', 'pax', 'from', 'to', 'electricCar', 'mapLink'],
+    table1: ['vehicle', 'flightNo', 'from', 'to', 'pax', 'sellerVat'],
+    table2: ['vehicle', 'dist', 'pax', 'from', 'to', 'electricCar', 'receiptFormat', 'mapLink'],
+    table3: ['applyItem', 'receiptFormat', 'fuelType', 'liters', 'sellerVat'],
+  };
+  function buildNoteSnap_(it, roundTrip) {
+    const snap = { category: it.category, amount: it.amount, roundTrip: !!roundTrip };
+    (NOTE_SNAP_FIELDS[it.category] || []).forEach((k) => { snap[k] = it[k]; });
+    return snap;
+  }
+  // 加入明細時呼叫。備註或交通工具沒填就不記。同一組（交通工具＋備註）只留最後一筆。
+  function rememberItemByNote_(it, roundTrip) {
+    const note = String(it.note || '').trim();
+    const vehicle = vehicleOfItem_(it);
+    if (!noteKey_(note) || !vehicle) return;
+    const mem = loadNoteMemory_();
+    mem[memKey_(note, vehicle)] = { note: note, vehicle: vehicle, snap: buildNoteSnap_(it, roundTrip), ts: Date.now() };
+    const keys = Object.keys(mem);
+    if (keys.length > NOTE_MEMORY_MAX) {
+      keys.sort((a, b) => mem[a].ts - mem[b].ts).slice(0, keys.length - NOTE_MEMORY_MAX).forEach((x) => { delete mem[x]; });
+    }
+    saveNoteMemory_(mem);
+  }
+
+  // 目前分頁選的交通工具；'' = 還沒選；null = 不適用（例如「上列行程補發票」不是一趟行程）
+  function currentVehicle_() {
+    const id = { main: 'm_vehicle', table1: 't1_vehicle', table2: 't2_vehicle', table3: 't3_applyItem' }[currentCategory];
+    if (!id) return null;
+    const v = document.getElementById(id).value;
+    return v === T2_PURE_RECEIPT ? null : v;
+  }
+  function findNoteEntries_(noteText, vehicle) {
+    const nk = noteKey_(noteText);
+    if (!nk) return [];
+    return Object.values(loadNoteMemory_())
+      .filter((e) => noteKey_(e.note) === nk && (!vehicle || e.vehicle === vehicle))
+      .sort((a, b) => b.ts - a.ts);
+  }
+  // 表單是不是還「空的」：起訖/里程/金額都還沒填才算。自動帶入只在這種情況下發生，
+  // 避免蓋掉同仁已經自己填的內容。
+  function isFreshForm_() {
+    const v = (id) => document.getElementById(id).value.trim();
+    if (currentCategory === 'main') return !v('m_from') && !v('m_to') && !v('m_dist') && !v('fAmount');
+    if (currentCategory === 'table1') return !v('t1_from') && !v('t1_to') && !v('fAmount');
+    if (currentCategory === 'table2') return !v('t2_dist') && !v('t2_from') && !v('t2_to') && !v('t2_amount');
+    if (currentCategory === 'table3') return !v('fAmount') && !v('t3_liters') && !v('t3_sellerVat');
+    return false;
+  }
+
+  function summarizeSnap_(s) {
+    const strip = (name) => {
+      let n = String(name || '');
+      if (s.vehicle && n.indexOf(s.vehicle) === 0) n = n.slice(s.vehicle.length); // 站名前面的「台北捷運」是重複的
+      return n.replace(/站$/, '');
+    };
+    let body = '';
+    if (s.category === 'table1') body = [s.vehicle, (s.from || s.to) ? strip(s.from) + '→' + strip(s.to) : ''].filter(Boolean).join(' ');
+    else if (s.category === 'main') body = [s.vehicle, (s.from && s.to) ? s.from + '→' + s.to : '', s.mapLink ? '含路線截圖' : ''].filter(Boolean).join(' ');
+    else if (s.category === 'table2') body = [s.vehicle, s.dist ? s.dist + '公里' : '', s.mapLink ? '含路線截圖' : ''].filter(Boolean).join(' ');
+    else if (s.category === 'table3') body = s.applyItem || '';
+    if (s.amount) body += ' NT$' + s.amount;
+    if (s.roundTrip) body += '（來回）';
+    return body;
+  }
+
+  // 沿用上次的 Google 路線截圖（私車公用、計程車/公車共用這段）：
+  // 同一條路線可以共用同一張，但如果同仁這次已經自己上傳了新的，就不蓋掉。
+  function carryMapLink_(uploadKey, previewFor, link) {
+    if (!link || uploadedLinks[uploadKey]) return;
+    uploadedLinks[uploadKey] = link;
+    renderExistingUploadPreview_(uploadKey, link);
+    const mapBox = document.querySelector('.mapPreview[data-for="' + previewFor + '"]');
+    if (mapBox) mapBox.insertAdjacentHTML('beforeend', '<div style="font-size:11px;color:var(--ink-soft);margin-top:4px;">沿用上次的路線截圖；如果這次起訖地址不同，請按「刪除重傳」</div>');
+  }
+
+  // 帶入：切到對應分頁，把記住的欄位填回去。日期、憑證、發票資料不動。
+  function applyNoteMemory_(entry, auto) {
+    const s = entry.snap;
+    const $ = (id) => document.getElementById(id);
+    switchToCategory(s.category);
+    if (s.category === 'main') {
+      $('m_vehicle').value = s.vehicle || '';
+      updateMRoundTripVisibility();
+      $('m_city').value = s.city || '';
+      $('m_dist').value = s.dist || '';
+      $('m_pax').value = s.pax || 1;
+      $('m_from').value = s.from || '';
+      $('m_to').value = s.to || '';
+      $('m_electricCar').checked = !!s.electricCar;
+      $('m_roundTrip').checked = !!s.roundTrip && $('m_roundTripWrap').style.display !== 'none';
+      $('fAmount').value = s.amount || '';
+      carryMapLink_('main-map', 'main', s.mapLink);
+    } else if (s.category === 'table1') {
+      $('t1_vehicle').value = s.vehicle || '';
+      updateT1VehicleMeta();
+      updateT1RoundTripVisibility();
+      $('t1_flightNo').value = s.flightNo || '';
+      if (s.sellerVat) $('t1_sellerVat').value = s.sellerVat; // 航空類賣方統編是同仁自己填的
+      $('t1_from').value = s.from || '';
+      $('t1_to').value = s.to || '';
+      $('t1_pax').value = s.pax || 1;
+      $('t1_fromSuggest').innerHTML = '';
+      $('t1_toSuggest').innerHTML = '';
+      $('t1_roundTrip').checked = !!s.roundTrip && $('t1_roundTripWrap').style.display !== 'none';
+      $('fAmount').value = s.amount || '';
+      resetFareState_();
+      // 台北捷運的金額視同「系統帶的票價」，之後同仁換站，票價會跟著更新
+      if (s.vehicle === MRT_FARE_VEHICLE && s.amount) lastAutoFare = s.amount;
+    } else if (s.category === 'table2') {
+      t2PaxAutoSet = false;
+      $('t2_vehicle').value = s.vehicle || '';
+      $('t2_dist').value = s.dist || '';
+      $('t2_receiptFormat').value = s.receiptFormat || T2_MERGE_OPTION;
+      updateT2InvoiceFields();
+      updateT2Rate(); // 先依里程算出補助標準，下面再用記住的金額覆蓋
+      $('t2_pax').value = s.pax == null ? '' : s.pax;
+      $('t2_from').value = s.from || '';
+      $('t2_to').value = s.to || '';
+      $('t2_electricCar').checked = !!s.electricCar;
+      $('t2_amount').value = s.amount || '';
+      carryMapLink_('table2-map', 'table2', s.mapLink); // Google路線截圖沿用
+    } else if (s.category === 'table3') {
+      $('t3_applyItem').value = s.applyItem || '';
+      updateT3Fields();
+      $('t3_receiptFormat').value = s.receiptFormat || '';
+      updateT3ReceiptFieldsVisibility();
+      $('t3_fuelType').value = s.fuelType || '';
+      $('t3_liters').value = s.liters || '';
+      $('t3_sellerVat').value = s.sellerVat || '';
+      $('fAmount').value = s.amount || '';
+    }
+    if (auto) noteAutoApplyAt = Date.now();
+    $('noteMemoryBanner').style.display = 'none';
+    $('noteMemoryBanner').innerHTML = '';
+    $('fNoteSuggest').innerHTML = '';
+    showToast('✅ ' + (auto ? '已自動' : '已') + '帶入上次「' + entry.note + '」的內容，請補上日期與憑證，並確認金額', 'ok');
+  }
+
+  // 備註欄下方的提示列（自動帶入沒發生時的備案）：備註跟記錄相同時出現，按一下帶入
+  function updateNoteMemoryBanner_() {
+    const banner = document.getElementById('noteMemoryBanner');
+    const vehicle = currentVehicle_();
+    // 已選交通工具 → 只看這個交通工具的那一筆；還沒選 → 列出這個備註所有交通工具的記錄讓同仁挑
+    const entries = (editingIndex === null && vehicle !== null) ? findNoteEntries_(document.getElementById('fNote').value, vehicle) : [];
+    if (!entries.length) { banner.style.display = 'none'; banner.innerHTML = ''; return; }
+    banner.style.display = 'block';
+    banner.innerHTML = entries.map((e, i) =>
+      '<div>📋 上次「' + escapeHtml(e.note) + '」：' + escapeHtml(summarizeSnap_(e.snap)) +
+      '　<button type="button" data-i="' + i + '" style="padding:6px 12px;font-size:12.5px;">一鍵帶入</button></div>').join('');
+    banner.querySelectorAll('button[data-i]').forEach((btn, i) => {
+      btn.addEventListener('click', () => applyNoteMemory_(entries[i], false));
+    });
+  }
+
+  // 備註欄的建議清單：列出以前用過的備註。已選交通工具就只列該交通工具的，避免同仁挑到不相干的
+  function renderNoteSuggest_() {
+    const box = document.getElementById('fNoteSuggest');
+    const vehicle = currentVehicle_();
+    if (editingIndex !== null || vehicle === null) { box.innerHTML = ''; return; }
+    const q = noteKey_(document.getElementById('fNote').value);
+    const entries = Object.values(loadNoteMemory_()).filter((e) => !vehicle || e.vehicle === vehicle).sort((a, b) => b.ts - a.ts);
+    const matches = q ? entries.filter((e) => noteKey_(e.note).includes(q)) : entries;
+    // 已經打到跟某筆完全一樣，交給自動帶入/提示列處理，清單就不用再列了
+    if (matches.length === 0 || (matches.length === 1 && noteKey_(matches[0].note) === q)) { box.innerHTML = ''; return; }
+    box.innerHTML = matches.map((e, i) => '<div data-i="' + i + '">' + escapeHtml(e.note) +
+      ' <span style="opacity:.6;font-size:11.5px;">' + escapeHtml(summarizeSnap_(e.snap)) + '</span></div>').join('');
+    box.querySelectorAll('div[data-i]').forEach((el, i) => {
+      el.addEventListener('click', () => {
+        document.getElementById('fNote').value = matches[i].note;
+        box.innerHTML = '';
+        applyNoteMemory_(matches[i], false); // 同仁明確點選了，直接帶入
+      });
+    });
+  }
+
+  // 備註打完離開欄位時：已選交通工具、表單還空著、而且有記錄 → 自動帶入；否則只更新提示列
+  function maybeAutoApplyNoteMemory_() {
+    const vehicle = currentVehicle_();
+    if (editingIndex === null && vehicle) {
+      const entries = findNoteEntries_(document.getElementById('fNote').value, vehicle);
+      if (entries.length === 1 && isFreshForm_()) { applyNoteMemory_(entries[0], true); return; }
+    }
+    updateNoteMemoryBanner_();
+  }
+
+  (function bindNoteMemory_() {
+    const noteEl = document.getElementById('fNote');
+    const box = document.getElementById('fNoteSuggest');
+    noteEl.addEventListener('focus', () => { renderNoteSuggest_(); updateNoteMemoryBanner_(); });
+    noteEl.addEventListener('input', () => { renderNoteSuggest_(); updateNoteMemoryBanner_(); });
+    noteEl.addEventListener('change', maybeAutoApplyNoteMemory_);
+    // 離開欄位就收起清單，不然會蓋住下面的「加入這筆明細」按鈕；延遲一下才不會吃掉點選
+    noteEl.addEventListener('blur', () => { setTimeout(() => { box.innerHTML = ''; }, 250); });
+    // 交通工具換了，提示列要跟著換
+    ['m_vehicle', 't1_vehicle', 't2_vehicle', 't3_applyItem'].forEach((id) => {
+      document.getElementById(id).addEventListener('change', () => { updateNoteMemoryBanner_(); });
+    });
+  })();
+
   function resetFormFields(cat) {
     (CATEGORY_FIELD_IDS[cat] || []).forEach((id) => {
       const el = document.getElementById(id);
@@ -814,6 +1045,8 @@
     }
     document.getElementById('fAmount').value = '';
     document.getElementById('fNote').value = '';
+    updateNoteMemoryBanner_();
+    document.getElementById('fNoteSuggest').innerHTML = '';
   }
 
   function endEditMode() {
@@ -882,6 +1115,8 @@
 
     editingIndex = idx;
     document.getElementById('addItemBtn').textContent = '更新這筆明細';
+    updateNoteMemoryBanner_(); // 編輯既有明細時不顯示「一鍵帶入」，避免誤蓋掉
+    document.getElementById('fNoteSuggest').innerHTML = '';
     document.getElementById('cancelEditBtn').style.display = 'block';
     document.getElementById('addItemBtn').scrollIntoView({ behavior: 'smooth', block: 'center' });
   }
@@ -1242,6 +1477,10 @@
 
   // ── 加入明細 ──────────────────────────────────────────
   document.getElementById('addItemBtn').addEventListener('click', () => {
+    if (Date.now() - noteAutoApplyAt < 800) {
+      showToast('已帶入上次的內容，請確認後再按一次「加入這筆明細」', 'ok');
+      return;
+    }
     const note = document.getElementById('fNote').value;
     let it = null;
     let uploadTargets = [];
@@ -1330,6 +1569,7 @@
         uploadTargets.push('table2');
       }
 
+      rememberItemByNote_(it, false);
       if (editingIndex !== null) {
         items[editingIndex] = it;
         endEditMode();
@@ -1485,6 +1725,7 @@
       uploadTargets = ['table3'];
     }
 
+    rememberItemByNote_(it, !!it.roundTripReturn); // 記的是去程那一筆，並記住有勾來回
     if (editingIndex !== null) {
       items[editingIndex] = it;
       endEditMode();
