@@ -163,7 +163,7 @@
       <h2>交通費用申請</h2>
       <p class="sub">選好交通類別後，只會出現該類別需要的欄位；可以用LINE掃發票QR自動帶入部分欄位。</p>
       <p id="liffStatus">檢查 LINE 環境中...</p>
-      <p style="font-size:10px;color:#6b7d94;margin:8px 0 0;">前端版本：v52</p>
+      <p style="font-size:10px;color:#6b7d94;margin:8px 0 0;">前端版本：v53</p>
     </div>
   </header>
 
@@ -291,6 +291,7 @@
         <div><label>憑證號碼(票號後六碼)</label><input id="t1_receiptNo" type="text"></div>
         <div><label>賣方統一編號</label><input id="t1_sellerVat" type="text" placeholder="航空需自行填寫"></div>
       </div>
+      <p id="t1_fareHint" style="display:none;font-size:12px;color:var(--ok);background:var(--ok-bg);padding:6px 10px;border-radius:7px;margin:0 0 10px;"></p>
       <div id="t1_roundTripWrap" style="display:none;align-items:center;gap:6px;margin:-4px 0 10px;">
         <input type="checkbox" id="t1_roundTrip" style="width:auto;margin:0;"><label style="margin:0;white-space:nowrap;" for="t1_roundTrip">來回（自動產生2筆）</label>
       </div>
@@ -743,7 +744,50 @@
   };
 
   const PAX_FIELD_IDS = ['m_pax', 't1_pax']; // 這幾個「乘車人數」欄位，重置時要回到預設值1，不是清空。
-  // ⚠️ 私車公用(t2_pax)刻意不放進來，因為可能多人共乘，不該預設帶1，避免同仁忘記改
+  // ⚠️ 私人汽車(t2_pax)刻意不預設帶1，因為可能多人共乘，避免同仁忘記改；
+  // 私人機車共乘機會小，改成「選到私人機車時」才自動帶1（見下方t2_vehicle的change監聽）
+  let t2PaxAutoSet = false; // 記錄這個1是不是系統自動帶的，換成別的交通工具時才知道要不要清掉
+
+  // ── 台北捷運：選好起訖站後，自動帶出全票票價（資料來源：後台「捷運票價」分頁）──
+  const T1_AMOUNT_ID = 'fAmount'; // 航空/高鐵/台鐵/捷運這個類別，金額填在共用的「金額」欄位
+  const MRT_FARE_VEHICLE = '台北捷運';
+  let lastAutoFare = null; // 上一次系統自動帶入的金額，用來判斷同仁後來有沒有自己改過
+  let fareReqSeq = 0;      // 連續操作時，避免比較慢回來的舊結果蓋掉新結果
+
+  function setFareHint_(msg) {
+    const el = document.getElementById('t1_fareHint');
+    if (!el) return;
+    el.textContent = msg || '';
+    el.style.display = msg ? 'block' : 'none';
+  }
+  function resetFareState_() { lastAutoFare = null; fareReqSeq++; setFareHint_(''); }
+  // 換交通工具時：如果金額是系統自動帶的（同仁沒改過），一併清掉，避免留著不適用的票價
+  function clearAutoFare_() {
+    const el = document.getElementById(T1_AMOUNT_ID);
+    if (lastAutoFare !== null && el && el.value.trim() === String(lastAutoFare)) el.value = '';
+    resetFareState_();
+  }
+  function maybeFillMrtFare_() {
+    const vehicle = document.getElementById('t1_vehicle').value;
+    const from = document.getElementById('t1_from').value.trim();
+    const to = document.getElementById('t1_to').value.trim();
+    if (vehicle !== MRT_FARE_VEHICLE || !from || !to) { setFareHint_(''); return; }
+    const seq = ++fareReqSeq;
+    callApi('getMrtFare', { from: from, to: to }).then((res) => {
+      if (seq !== fareReqSeq) return; // 已經有更新的查詢，這筆作廢
+      if (!res || !res.ok || !res.found) { setFareHint_(''); return; }
+      const amountEl = document.getElementById(T1_AMOUNT_ID);
+      const cur = amountEl.value.trim();
+      if (cur === '' || cur === String(lastAutoFare)) {
+        amountEl.value = res.fare;
+        lastAutoFare = res.fare;
+        setFareHint_('已依票價表帶入全票 NT$' + res.fare + '，實際金額不同可直接修改');
+      } else {
+        // 同仁已經自己輸入過金額，不覆蓋，只提示票價表的數字供參考
+        setFareHint_('票價表全票為 NT$' + res.fare + '（目前金額是您手動輸入的，沒有被覆蓋）');
+      }
+    }).catch(() => setFareHint_('')); // 查不到/網路問題就靜默略過，不影響手動輸入
+  }
 
   function resetFormFields(cat) {
     (CATEGORY_FIELD_IDS[cat] || []).forEach((id) => {
@@ -755,6 +799,7 @@
     });
     if (cat === 'main') { document.getElementById('m_electricCar').checked = false; document.getElementById('m_roundTrip').checked = false; updateMRoundTripVisibility(); }
     if (cat === 'table1') {
+      resetFareState_();
       updateT1VehicleMeta();
       updateT1RoundTripVisibility();
       document.getElementById('t1_fromSuggest').innerHTML = '';
@@ -762,6 +807,7 @@
     }
     if (cat === 'table3') updateT3Fields();
     if (cat === 'table2') {
+      t2PaxAutoSet = false;
       document.getElementById('t2_electricCar').checked = false;
       document.getElementById('t2_rateHint').textContent = '';
       updateT2InvoiceFields();
@@ -790,6 +836,7 @@
       if (it.receiptLink) { uploadedLinks['main'] = it.receiptLink; renderExistingUploadPreview_('main', it.receiptLink); }
       if (it.mapLink) { uploadedLinks['main-map'] = it.mapLink; renderExistingUploadPreview_('main-map', it.mapLink); }
     } else if (it.category === 'table1') {
+      resetFareState_();
       document.getElementById('t1_vehicle').value = it.vehicle || '';
       updateT1VehicleMeta();
       document.getElementById('t1_flightNo').value = it.flightNo || '';
@@ -801,6 +848,7 @@
       document.getElementById('t1_sellerVat').value = it.sellerVat || '';
       if (it.receiptLink) { uploadedLinks['table1'] = it.receiptLink; renderExistingUploadPreview_('table1', it.receiptLink); }
     } else if (it.category === 'table2') {
+      t2PaxAutoSet = false;
       document.getElementById('t2_vehicle').value = it.vehicle || '';
       document.getElementById('t2_date').value = it.date || '';
       document.getElementById('t2_dist').value = it.dist || '';
@@ -909,6 +957,7 @@
         el.addEventListener('click', () => {
           input.value = matches[i].name;
           box.innerHTML = '';
+          maybeFillMrtFare_();
         });
       });
     }
@@ -918,6 +967,9 @@
   }
   bindStationSuggest('t1_from', 't1_fromSuggest');
   bindStationSuggest('t1_to', 't1_toSuggest');
+  // 手動打完站名離開欄位時也試著帶票價（點選建議清單的情況已在上面處理）
+  document.getElementById('t1_from').addEventListener('change', maybeFillMrtFare_);
+  document.getElementById('t1_to').addEventListener('change', maybeFillMrtFare_);
 
   const MRT_VEHICLES = ['台北捷運', '桃園捷運', '台中捷運', '高雄捷運'];
   function updateT1RoundTripVisibility() {
@@ -927,6 +979,7 @@
     if (!show) document.getElementById('t1_roundTrip').checked = false;
   }
   document.getElementById('t1_vehicle').addEventListener('change', () => {
+    clearAutoFare_();
     // 換交通工具後，原本填的起訖站可能不適用了，清空避免帶錯站
     document.getElementById('t1_from').value = '';
     document.getElementById('t1_to').value = '';
@@ -966,6 +1019,19 @@
     document.getElementById('t2_amount').value = suggested || '';
   }
   document.getElementById('t2_vehicle').addEventListener('change', updateT2Rate);
+  // 私人機車：選到時乘車人數自動帶1；換成別的交通工具時，如果那個1是系統帶的就清掉
+  document.getElementById('t2_vehicle').addEventListener('change', () => {
+    const v = document.getElementById('t2_vehicle').value;
+    const paxEl = document.getElementById('t2_pax');
+    if (v === '私人機車') {
+      if (!paxEl.value) { paxEl.value = '1'; t2PaxAutoSet = true; }
+    } else if (t2PaxAutoSet && paxEl.value === '1') {
+      paxEl.value = '';
+      t2PaxAutoSet = false;
+    } else {
+      t2PaxAutoSet = false;
+    }
+  });
   document.getElementById('t2_dist').addEventListener('input', updateT2Rate);
   updateT2Rate();
 
