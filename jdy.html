@@ -134,7 +134,7 @@
       <h2>交通費用申請</h2>
       <p class="sub">選好交通類別後，只會出現該類別需要的欄位；每筆明細請選對應的服務專案。</p>
       <p id="liffStatus">檢查 LINE 環境中...</p>
-      <p style="font-size:10px;color:#6b7d94;margin:8px 0 0;">前端版本：v28</p>
+      <p style="font-size:10px;color:#6b7d94;margin:8px 0 0;">前端版本：v29</p>
     </div>
   </header>
 
@@ -407,6 +407,7 @@
         <span>總額 NT$ <strong id="itemTotal" class="num">0</strong></span>
       </div>
       <p style="font-size:11px;color:var(--ink-soft);margin:0 0 8px;">明細會自動存在這支手機裡，可以分好幾天慢慢加，累積夠了再一次送出。</p>
+      <div id="t2Tally" style="display:none;font-size:12.5px;line-height:1.7;padding:9px 12px;border-radius:8px;margin:0 0 8px;"></div>
       <div id="itemList"></div>
       <button id="clearAllBtn" class="danger" style="border:1px solid var(--danger);width:100%;margin-top:6px;display:none;">清空全部明細</button>
     </section>
@@ -1301,8 +1302,40 @@
 
   const CAT_LABELS = { main: '計程車/公車/客運', table1: '航空/高鐵/台鐵/捷運', table2: '私車公用', table3: '公務車/其他' };
 
+  // ── 私車公用：行程合計 vs 發票合計 的即時統計列 ──
+  // 讓同仁累積行程時，隨時看得到「還差多少發票」，月底補發票時不用自己心算。
+  // 算法跟送出前的 validateTable2() 完全一致（行程合計不能超過發票合計，相等可以）。
+  function getT2Totals_() {
+    const all = items.filter((it) => it.category === 'table2');
+    const trips = all.filter((it) => it.vehicle !== T2_PURE_RECEIPT);
+    const invoiced = all.filter((it) => it.vehicle === T2_PURE_RECEIPT || (it.receiptFormat && it.receiptFormat !== T2_MERGE_OPTION));
+    return {
+      count: all.length,
+      tripTotal: trips.reduce((s, it) => s + num_(it.amount), 0),
+      invoiceTotal: invoiced.reduce((s, it) => s + num_(it.invoiceAmount), 0),
+    };
+  }
+  function renderT2Tally_() {
+    const box = document.getElementById('t2Tally');
+    if (!box) return;
+    const t = getT2Totals_();
+    if (t.count === 0) { box.style.display = 'none'; box.innerHTML = ''; return; } // 沒有私車公用明細就不顯示
+    const fmt = (n) => 'NT$' + n.toLocaleString();
+    const gap = t.tripTotal - t.invoiceTotal;
+    box.style.display = 'block';
+    if (gap > 0) {
+      box.style.background = '#fef3cd'; box.style.color = '#7a5a00';
+      box.innerHTML = '🚗 私車公用：行程合計 <b>' + fmt(t.tripTotal) + '</b>／發票合計 <b>' + fmt(t.invoiceTotal) + '</b>，' +
+        '<b>還差 ' + fmt(gap) + '</b>。送出前請用「上列行程補發票」補上足夠的發票。';
+    } else {
+      box.style.background = 'var(--ok-bg)'; box.style.color = 'var(--ok)';
+      box.innerHTML = '🚗 私車公用：行程合計 <b>' + fmt(t.tripTotal) + '</b>／發票合計 <b>' + fmt(t.invoiceTotal) + '</b>，發票金額已足夠。';
+    }
+  }
+
   function renderItems() {
     saveDraft();
+    renderT2Tally_();
     document.getElementById('clearAllBtn').style.display = items.length > 0 ? 'block' : 'none';
     const list = document.getElementById('itemList');
     document.getElementById('itemCount').textContent = items.length;
