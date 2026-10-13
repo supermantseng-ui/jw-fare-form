@@ -163,7 +163,7 @@
       <h2>交通費用申請</h2>
       <p class="sub">選好交通類別後，只會出現該類別需要的欄位；可以用LINE掃發票QR自動帶入部分欄位。</p>
       <p id="liffStatus">檢查 LINE 環境中...</p>
-      <p style="font-size:10px;color:#6b7d94;margin:8px 0 0;">前端版本：v58</p>
+      <p style="font-size:10px;color:#6b7d94;margin:8px 0 0;">前端版本：v59</p>
     </div>
   </header>
 
@@ -586,6 +586,7 @@
 
   // ── LIFF 初始化（非必要，不在LINE裡開也能正常用其他功能）────
   let currentLineUserId = null;
+  let currentLineDisplayName = ''; // LINE顯示名稱：綁定時一併記到後台，方便管理員核對是不是本人綁的
 
   function showLiffBlock(reason) {
     document.getElementById('liffLoadingSection').style.display = 'none';
@@ -640,7 +641,8 @@
       }
       liff.getProfile().then((profile) => {
         currentLineUserId = profile.userId;
-        callApiWithRetry('checkLineBinding', { lineUserId: currentLineUserId }, 2).then((res) => {
+        currentLineDisplayName = profile.displayName || '';
+        callApiWithRetry('checkLineBinding', { lineUserId: currentLineUserId, displayName: currentLineDisplayName }, 2).then((res) => {
           if (!res.ok) {
             showLiffBlock('checkLineBinding回應失敗：' + (res.reason || JSON.stringify(res)));
             return;
@@ -1379,7 +1381,7 @@
     const btn = document.getElementById('confirmBindBtn');
     btn.disabled = true;
     btn.textContent = '綁定中...';
-    callApi('registerLineBinding', { lineUserId: currentLineUserId, employeeId: currentEmployee.id }).then((res) => {
+    callApi('registerLineBinding', { lineUserId: currentLineUserId, employeeId: currentEmployee.id, displayName: currentLineDisplayName }).then((res) => {
       if (res.ok) {
         showBoundIdentity(currentEmployee);
       } else {
