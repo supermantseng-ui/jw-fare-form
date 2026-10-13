@@ -163,7 +163,7 @@
       <h2>交通費用申請</h2>
       <p class="sub">選好交通類別後，只會出現該類別需要的欄位；可以用LINE掃發票QR自動帶入部分欄位。</p>
       <p id="liffStatus">檢查 LINE 環境中...</p>
-      <p style="font-size:10px;color:#6b7d94;margin:8px 0 0;">前端版本：v57</p>
+      <p style="font-size:10px;color:#6b7d94;margin:8px 0 0;">前端版本：v58</p>
     </div>
   </header>
 
@@ -347,7 +347,8 @@
       </div>
 
       <p id="t2_pureReceiptHint" style="display:none;font-size:12px;color:var(--ink-soft);background:var(--bg);padding:8px 10px;border-radius:7px;margin:0 0 10px;">
-        這一列不代表一趟行程，單純用來補充發票額度（例如機車分好幾次加油），只需要填發票資訊。
+        這一列不代表一趟行程，單純用來補充發票額度（例如機車分好幾次加油），只需要填發票資訊。<br>
+        補上的發票會<b>自動先補「最早還有缺口的月份」</b>，那個月補滿了，才會算到下一個月。
       </p>
 
       <div id="t2_invoiceFields" style="display:none;background:var(--bg);border-radius:8px;padding:10px 12px;margin-top:4px;">
@@ -437,6 +438,7 @@
   <section>
     <h3><span class="step-no">3</span>送出</h3>
     <button id="submitBtn" disabled>送出到 BPM</button>
+    <div id="submitGroups" style="display:none;"></div>
     <div id="resultBox" style="display:none;"></div>
   </section>
 
@@ -1570,6 +1572,7 @@
         uploadTargets.push('table2');
       }
 
+      { const wmsg = checkDateWindow_(it.date, editingIndex !== null ? items[editingIndex].date : null); if (wmsg) { alert(wmsg); return; } }
       rememberItemByNote_(it, false);
       if (editingIndex !== null) {
         items[editingIndex] = it;
@@ -1726,6 +1729,7 @@
       uploadTargets = ['table3'];
     }
 
+    { const wmsg = checkDateWindow_(it.date, editingIndex !== null ? items[editingIndex].date : null); if (wmsg) { alert(wmsg); return; } }
     rememberItemByNote_(it, !!it.roundTripReturn); // 記的是去程那一筆，並記住有勾來回
     if (editingIndex !== null) {
       items[editingIndex] = it;
@@ -1746,11 +1750,90 @@
 
   const CAT_LABELS = { main: '計程車/公車/客運', table1: '航空/高鐵/台鐵/捷運', table2: '私車公用', table3: '公務車/其他' };
 
-  // ── 私車公用：行程合計 vs 發票合計 的即時統計列 ──
-  // 讓同仁累積行程時，隨時看得到「還差多少發票」，月底補發票時不用自己心算。
+  // ══════════ 依月份分組：暫存區可同時放「上個月」與「這個月」，一次只送一個月 ══════════
+  // BPM 一張單只能放一個月份的行程。以前上個月的加油發票還沒拿到、這個月又得開始記時，
+  // 同仁只好先塞假憑證把上個月送出去，事後還要回 BPM 更正假資料。
+  // 現在兩個月份各自分組：上個月先留在暫存，等拿到真發票再送，不用放任何假資料。
+  function formatMonthKey_(k) { return k ? Math.floor(k / 100) + '年' + (k % 100) + '月' : '日期不明'; }
+  function currentMonthKey_() { const d = new Date(); return d.getFullYear() * 100 + d.getMonth() + 1; }
+  function prevMonthKey_() { const d = new Date(); const p = new Date(d.getFullYear(), d.getMonth() - 1, 1); return p.getFullYear() * 100 + p.getMonth() + 1; }
+
+  // 加入明細時的日期檢查：只收「上個月」與「這個月」，避免暫存放太久、手機資料一旦遺失損失太大。
+  // 編輯舊明細時，如果沒改月份就放行（不然舊暫存裡超過期限的明細連修改都不行）。
+  function checkDateWindow_(dateStr, originalDateStr) {
+    const k = getYearMonth_(dateStr);
+    if (k === null) return null;
+    const cur = currentMonthKey_(), prev = prevMonthKey_();
+    if (k === cur || k === prev) return null;
+    if (originalDateStr && getYearMonth_(originalDateStr) === k) return null;
+    const range = '只能記錄「上個月（' + (prev % 100) + '月）」和「這個月（' + (cur % 100) + '月）」的明細。';
+    if (k > cur) return '日期 ' + dateStr + ' 是還沒到的月份，' + range;
+    return '日期 ' + dateStr + ' 超出可暫存的範圍：' + range + '更早月份的明細請洽管理員處理。';
+  }
+
+  // 「上列行程補發票」沒有行程日期，自動歸到「最早還有缺口、而且發票日期符合月份規則」的月份；
+  // 缺口都補滿了，就算在最晚的月份。依加入順序逐張分配，所以同仁不用選，也不會歸錯月。
+  function allocateInvoices_(list) {
+    const result = new Map();
+    const isPure = (it) => it.category === 'table2' && it.vehicle === T2_PURE_RECEIPT;
+    const pure = list.filter(isPure);
+    if (pure.length === 0) return result;
+    const months = new Map(); // 月份 → { firstDate: 該月第一筆私車公用行程日期, short: 還缺多少發票 }
+    list.filter((it) => it.category === 'table2' && !isPure(it)).forEach((it) => {
+      const k = getYearMonth_(it.date);
+      if (k === null) return;
+      if (!months.has(k)) months.set(k, { firstDate: it.date, short: 0 });
+      const m = months.get(k);
+      m.short += num_(it.amount);
+      if (it.receiptFormat && it.receiptFormat !== T2_MERGE_OPTION) m.short -= num_(it.invoiceAmount); // 行程自帶的發票
+    });
+    const keys = [...months.keys()].sort((a, b) => a - b);
+    if (keys.length === 0) { // 完全沒有私車公用行程：發票歸到最晚的月份
+      const dated = list.filter((it) => !isPure(it)).map((it) => getYearMonth_(it.date)).filter((k) => k !== null);
+      const latest = dated.length ? Math.max(...dated) : null;
+      pure.forEach((r) => result.set(r, latest !== null ? latest : getYearMonth_(r.invoiceDate)));
+      return result;
+    }
+    pure.forEach((r) => {
+      const allowed = keys.filter((k) => isMonthAllowed(months.get(k).firstDate, r.invoiceDate));
+      const pool = allowed.length ? allowed : keys; // 沒有任何月份允許這個日期，就照樣分配，讓送出時的月份規則把問題講清楚
+      let target = pool.find((k) => months.get(k).short > 0); // 最早還有缺口的月份
+      if (target === undefined) target = pool[pool.length - 1]; // 都補滿了，算在最晚的月份
+      months.get(target).short -= num_(r.invoiceAmount);
+      result.set(r, target);
+    });
+    return result;
+  }
+
+  // 把明細依月份分組（補發票那列依上面的規則歸月）。回傳依月份由舊到新排序。
+  function getMonthGroups_(list = items) {
+    const alloc = allocateInvoices_(list);
+    const byKey = new Map();
+    const unknown = [];
+    list.forEach((it) => {
+      const isPure = it.category === 'table2' && it.vehicle === T2_PURE_RECEIPT;
+      const k = isPure ? alloc.get(it) : getYearMonth_(it.date);
+      if (k === null || k === undefined) { unknown.push(it); return; }
+      if (!byKey.has(k)) byKey.set(k, []);
+      byKey.get(k).push(it);
+    });
+    const keys = [...byKey.keys()].sort((a, b) => a - b);
+    if (unknown.length) { // 日期讀不出來（正常不會發生，日期是必填）：併入最晚的月份，不讓它消失
+      const k = keys.length ? keys[keys.length - 1] : 0;
+      if (!byKey.has(k)) { byKey.set(k, []); keys.push(k); }
+      byKey.get(k).push(...unknown);
+    }
+    return keys.map((k) => {
+      const its = byKey.get(k);
+      return { key: k, label: formatMonthKey_(k), items: its, count: its.length,
+        total: its.reduce((sum, i) => sum + (parseFloat(i.amount) || 0), 0) };
+    });
+  }
+
+  // ── 私車公用：行程合計 vs 發票合計 的即時統計列（依月份各算各的）──
   // 算法跟送出前的 validateTable2() 完全一致（行程合計不能超過發票合計，相等可以）。
-  function getT2Totals_() {
-    const all = items.filter((it) => it.category === 'table2');
+  function getT2Totals_(list = items) {
+    const all = list.filter((it) => it.category === 'table2');
     const trips = all.filter((it) => it.vehicle !== T2_PURE_RECEIPT);
     const invoiced = all.filter((it) => it.vehicle === T2_PURE_RECEIPT || (it.receiptFormat && it.receiptFormat !== T2_MERGE_OPTION));
     return {
@@ -1762,19 +1845,45 @@
   function renderT2Tally_() {
     const box = document.getElementById('t2Tally');
     if (!box) return;
-    const t = getT2Totals_();
-    if (t.count === 0) { box.style.display = 'none'; box.innerHTML = ''; return; } // 沒有私車公用明細就不顯示
+    const groups = getMonthGroups_().filter((g) => g.items.some((it) => it.category === 'table2'));
+    if (groups.length === 0) { box.style.display = 'none'; box.innerHTML = ''; return; } // 沒有私車公用明細就不顯示
     const fmt = (n) => 'NT$' + n.toLocaleString();
-    const gap = t.tripTotal - t.invoiceTotal;
+    const multi = groups.length > 1;
+    let anyShort = false;
+    const lines = groups.map((g) => {
+      const t = getT2Totals_(g.items);
+      const gap = t.tripTotal - t.invoiceTotal;
+      const prefix = multi ? '<b>' + (g.key % 100) + '月</b>　' : '';
+      const head = '🚗 ' + prefix + '私車公用：行程合計 <b>' + fmt(t.tripTotal) + '</b>／發票合計 <b>' + fmt(t.invoiceTotal) + '</b>，';
+      if (gap > 0) {
+        anyShort = true;
+        return head + '<b>還差 ' + fmt(gap) + '</b>。' + (multi ? '' : '送出前請用「上列行程補發票」補上足夠的發票。');
+      }
+      return head + '發票金額已足夠。';
+    });
     box.style.display = 'block';
-    if (gap > 0) {
-      box.style.background = '#fef3cd'; box.style.color = '#7a5a00';
-      box.innerHTML = '🚗 私車公用：行程合計 <b>' + fmt(t.tripTotal) + '</b>／發票合計 <b>' + fmt(t.invoiceTotal) + '</b>，' +
-        '<b>還差 ' + fmt(gap) + '</b>。送出前請用「上列行程補發票」補上足夠的發票。';
-    } else {
-      box.style.background = 'var(--ok-bg)'; box.style.color = 'var(--ok)';
-      box.innerHTML = '🚗 私車公用：行程合計 <b>' + fmt(t.tripTotal) + '</b>／發票合計 <b>' + fmt(t.invoiceTotal) + '</b>，發票金額已足夠。';
-    }
+    box.style.background = anyShort ? '#fef3cd' : 'var(--ok-bg)';
+    box.style.color = anyShort ? '#7a5a00' : 'var(--ok)';
+    box.innerHTML = lines.join('<br>') + (multi && anyShort ? '<br><span style="font-size:11.5px;opacity:.85;">補上的發票會先補最早還有缺口的月份。</span>' : '');
+  }
+
+  // 有兩個以上月份時，送出鈕改成「每個月份一顆」，同仁自己決定先送哪個月
+  function renderSubmitGroups_(groups) {
+    const box = document.getElementById('submitGroups');
+    if (groups.length < 2) { box.style.display = 'none'; box.innerHTML = ''; submitBtn.style.display = ''; return; }
+    submitBtn.style.display = 'none';
+    box.style.display = 'block';
+    box.innerHTML = '<p style="font-size:12px;color:var(--ink-soft);margin:0 0 8px;">一張 BPM 單據只能放一個月份。請選擇要送出哪個月，送完另一個月會繼續留在暫存。</p>' +
+      groups.map((g) => {
+        const t = getT2Totals_(g.items);
+        const gap = t.tripTotal - t.invoiceTotal;
+        const warn = (t.count > 0 && gap > 0) ? '<br><span style="font-size:11.5px;font-weight:400;">⚠️ 私車公用還差 NT$' + gap.toLocaleString() + ' 發票</span>' : '';
+        return '<button type="button" data-month="' + g.key + '" style="width:100%;margin-bottom:8px;text-align:left;">送出 ' + escapeHtml(g.label) +
+          '（' + g.count + ' 筆・NT$ ' + g.total.toLocaleString() + '）' + warn + '</button>';
+      }).join('');
+    box.querySelectorAll('button[data-month]').forEach((b) => {
+      b.addEventListener('click', () => submitGroup_(parseInt(b.dataset.month, 10)));
+    });
   }
 
   function renderItems() {
@@ -1786,8 +1895,12 @@
     const total = items.reduce((s, i) => s + (parseFloat(i.amount) || 0), 0);
     document.getElementById('itemTotal').textContent = total.toLocaleString();
     submitBtn.disabled = items.length === 0;
-    if (items.length === 0) { list.innerHTML = '<p style="color:#999;font-size:13px;">尚未加入任何明細</p>'; return; }
-    list.innerHTML = items.map((it, idx) => {
+    if (items.length === 0) { renderSubmitGroups_([]); list.innerHTML = '<p style="color:#999;font-size:13px;">尚未加入任何明細</p>'; return; }
+    const groups = getMonthGroups_();
+    renderSubmitGroups_(groups);
+    const prevKey = prevMonthKey_();
+    const cardHtml = (it) => {
+      const idx = items.indexOf(it); // 清單依月份分組顯示，但編輯/刪除仍用它在整份明細裡的位置
       const isPureReceipt = it.category === 'table2' && it.vehicle === T2_PURE_RECEIPT;
       const selfInvoiced = it.category === 'table2' && it.receiptFormat && it.receiptFormat !== T2_MERGE_OPTION;
       const roleTag = isPureReceipt
@@ -1801,6 +1914,12 @@
         (it.receiptLink ? '<span class="pill">憑證連結</span>' : '') +
         (it.mapLink ? '<span class="pill">地圖連結</span>' : '') +
         '</div><div>NT$ ' + displayAmount + ' <button class="danger" data-del="' + idx + '">刪除</button></div></div>';
+    };
+    list.innerHTML = groups.map((g) => {
+      const overdue = g.key && g.key < prevKey
+        ? ' <span style="color:#b45309;font-weight:500;">⚠️ 已超過暫存期限（只保留上個月與這個月），請盡快送出</span>' : '';
+      return '<div class="month-head" style="font-size:12.5px;font-weight:600;margin:12px 0 6px;">📅 ' + escapeHtml(g.label) +
+        '　' + g.count + ' 筆・NT$ ' + g.total.toLocaleString() + overdue + '</div>' + g.items.map(cardHtml).join('');
     }).join('');
     list.querySelectorAll('.item-card').forEach((card) => {
       card.addEventListener('click', () => populateFormForEdit(items[parseInt(card.dataset.idx)], parseInt(card.dataset.idx)));
@@ -1821,7 +1940,8 @@
     });
   }
   document.getElementById('clearAllBtn').addEventListener('click', () => {
-    if (!confirm('確定要清空全部 ' + items.length + ' 筆明細嗎？這個動作沒辦法復原。')) return;
+    const monthCount = getMonthGroups_().length;
+    if (!confirm('確定要清空全部 ' + items.length + ' 筆明細' + (monthCount > 1 ? '（包含 ' + monthCount + ' 個月份）' : '') + '嗎？這個動作沒辦法復原。')) return;
     items = [];
     if (editingIndex !== null) { endEditMode(); resetFormFields(currentCategory); }
     renderItems();
@@ -1831,8 +1951,8 @@
   renderItems();
 
   // ── 私車公用送出前驗證：金額加總 + 發票月份規則（完全比照BPM中介程式邏輯）─────
-  function validateTable2() {
-    const all = items.filter((it) => it.category === 'table2');
+  function validateTable2(list = items) {
+    const all = list.filter((it) => it.category === 'table2');
     if (all.length === 0) return { ok: true };
 
     const trips = all.filter((it) => it.vehicle !== T2_PURE_RECEIPT);
@@ -1870,11 +1990,11 @@
   }
 
   // ── 跨類別的月份一致性檢查：同一張單、同一個類別的所有明細必須是同一個月份 ──
-  function validateSameMonthAcrossCategories() {
-    const mainItems = items.filter((it) => it.category === 'main');
-    const table1Items = items.filter((it) => it.category === 'table1');
-    const table2Items = items.filter((it) => it.category === 'table2');
-    const table3Items = items.filter((it) => it.category === 'table3');
+  function validateSameMonthAcrossCategories(list = items) {
+    const mainItems = list.filter((it) => it.category === 'main');
+    const table1Items = list.filter((it) => it.category === 'table1');
+    const table2Items = list.filter((it) => it.category === 'table2');
+    const table3Items = list.filter((it) => it.category === 'table3');
 
     let msg = checkSameMonthAcrossItems_(mainItems, (it) => getYearMonth_(it.date), '計程車/公車/客運費用');
     if (msg) return { ok: false, reason: msg };
@@ -1891,59 +2011,66 @@
     return { ok: true };
   }
 
-  // ── 送出 ──────────────────────────────────────────
-  submitBtn.addEventListener('click', () => {
+  // ── 送出（一次送一個月份）──────────────────────────────────────────
+  function submitGroup_(groupKey) {
     if (!currentEmployee) { alert('請先選擇工號'); return; }
+    const groups = getMonthGroups_();
+    const group = groups.find((g) => g.key === groupKey);
+    if (!group) return;
+    const list = group.items;
+    const multi = groups.length > 1;
+    const box = document.getElementById('resultBox');
+    const fail = (msg) => { box.style.display = 'block'; box.className = 'err-box'; box.textContent = (multi ? group.label + '：' : '') + msg; };
 
-    const monthCheck = validateSameMonthAcrossCategories();
-    if (!monthCheck.ok) {
-      const box = document.getElementById('resultBox');
-      box.style.display = 'block';
-      box.className = 'err-box';
-      box.textContent = monthCheck.reason;
-      return;
-    }
+    const monthCheck = validateSameMonthAcrossCategories(list);
+    if (!monthCheck.ok) { fail(monthCheck.reason); return; }
+    const check = validateTable2(list);
+    if (!check.ok) { fail(check.reason); return; }
 
-    const check = validateTable2();
-    if (!check.ok) {
-      const box = document.getElementById('resultBox');
-      box.style.display = 'block';
-      box.className = 'err-box';
-      box.textContent = check.reason;
-      return;
-    }
-
-    submitBtn.disabled = true;
+    const allBtns = [submitBtn].concat([...document.querySelectorAll('#submitGroups button')]);
+    allBtns.forEach((btn) => { btn.disabled = true; });
     submitBtn.textContent = '送出中...';
-    callApi('submitFare', { formInput: { employee: currentEmployee, items: items } }).then((res) => {
+    callApi('submitFare', { formInput: { employee: currentEmployee, items: list } }).then((res) => {
       submitBtn.textContent = '送出到 BPM';
-      const box = document.getElementById('resultBox');
       box.style.display = 'block';
       if (res.ok) {
         box.className = 'ok-box';
-        box.innerHTML = '建單成功，單號：' + escapeHtml(res.subjectId) + '　總額 NT$ ' + res.total.toLocaleString() +
+        box.innerHTML = '建單成功' + (multi ? '（' + escapeHtml(group.label) + '）' : '') + '，單號：' + escapeHtml(res.subjectId) + '　總額 NT$ ' + res.total.toLocaleString() +
           '　<span style="opacity:.6;">(後端版本:' + escapeHtml(res.apiVersion) + ')</span>' +
           '<details><summary>查看送出的 JSON / BPM 原始回應</summary><pre>' +
           escapeHtml(JSON.stringify({ sentJson: res.sentJson, raw: res.raw }, null, 2)) + '</pre></details>';
-        // 成功後清空明細清單，避免使用者不小心再按一次造成重複送單
-        items = [];
-        if (editingIndex !== null) { endEditMode(); resetFormFields(currentCategory); }
+        // 只移除「這個月份」送出去的明細，另一個月份繼續留在暫存（同時避免不小心再按一次造成重複送單）
+        const sent = new Set(list);
+        const editingItem = editingIndex !== null ? items[editingIndex] : null;
+        items = items.filter((it) => !sent.has(it));
+        if (editingItem && sent.has(editingItem)) { endEditMode(); resetFormFields(currentCategory); }
+        else if (editingItem) { editingIndex = items.indexOf(editingItem); }
+        if (items.length > 0) {
+          const left = getMonthGroups_().map((g) => g.label).join('、');
+          box.insertAdjacentHTML('beforeend', '<div style="margin-top:6px;font-size:12.5px;">另外還有 ' + items.length + ' 筆明細（' + escapeHtml(left) + '）仍保留在暫存，之後再送出。</div>');
+        }
         renderItems();
       } else {
-        submitBtn.disabled = false; // 失敗才重新啟用，讓使用者修正後可以重試
         box.className = 'err-box';
         box.innerHTML = '失敗：' + escapeHtml(res.reason || '未知錯誤') +
           '<br>HTTP 狀態碼：' + escapeHtml(res.status) + '　Content-Type：' + escapeHtml(res.contentType || '(無)') +
           (res.raw ? '<details><summary>BPM 原始回應</summary><pre>' + escapeHtml(res.raw) + '</pre></details>' : '<p style="color:#991b1b;">（回應內容完全空白）</p>');
+        renderItems(); // 失敗才重新啟用按鈕，讓同仁修正後可以重試（明細都還在）
       }
     }).catch((err) => {
-      submitBtn.disabled = false;
       submitBtn.textContent = '送出到 BPM';
-      const box = document.getElementById('resultBox');
       box.style.display = 'block';
       box.className = 'err-box';
       box.textContent = '呼叫失敗：' + err.message;
+      renderItems();
     });
+  }
+
+  submitBtn.addEventListener('click', () => {
+    const groups = getMonthGroups_();
+    if (groups.length === 0) return;
+    if (groups.length > 1) { showToast('請在下方選擇要送出哪個月份', 'ok'); return; }
+    submitGroup_(groups[0].key);
   });
 </script>
   </div>
